@@ -1,0 +1,56 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  note: CollectionEntry<'notes'>;
+}
+const { note } = Astro.props;
+const { title, paper, authors, venue, date, tags, status, arxiv, pdf, summary } = note.data;
+
+const statusLabel: Record<typeof status, string> = {
+  todo: '읽을 예정',
+  reading: '읽는 중',
+  done: '완료',
+};
+const df = date
+  ? new Intl.DateTimeFormat('ko', { dateStyle: 'long' }).format(date)
+  : null;
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title={`${title} · Paper Study`} description={summary ?? title}>
+  <article class="note">
+    <a class="back" href={base}>← 목록으로</a>
+
+    <header class="note-header">
+      <div class="note-meta-top">
+        <span class:list={['status', `status-${status}`]}>{statusLabel[status]}</span>
+        {venue && <span class="venue">{venue}</span>}
+        {df && <span class="note-date">{df}</span>}
+      </div>
+      <h1 class="note-title">{title}</h1>
+      {paper && <p class="note-paper">{paper}</p>}
+      {authors && <p class="note-authors">{authors}</p>}
+      {
+        (arxiv || pdf) && (
+          <div class="note-links">
+            {arxiv && <a href={arxiv} target="_blank" rel="noopener">arXiv ↗</a>}
+            {pdf && <a href={pdf} target="_blank" rel="noopener">PDF ↗</a>}
+          </div>
+        )
+      }
+      {
+        tags.length > 0 && (
+          <div class="note-tags">
+            {tags.map((t) => <span class="tag">#{t}</span>)}
+          </div>
+        )
+      }
+    </header>
+
+    <div class="prose">
+      <slot />
+    </div>
+  </article>
+</BaseLayout>

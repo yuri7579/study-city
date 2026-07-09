@@ -1,0 +1,29 @@
+---
+type CalloutType = 'note' | 'insight' | 'question' | 'warning';
+interface Props {
+  type?: CalloutType;
+  title?: string;
+}
+const { type = 'note', title } = Astro.props;
+
+const icons: Record<CalloutType, string> = {
+  note: '📝',
+  insight: '💡',
+  question: '❓',
+  warning: '⚠️',
+};
+const labels: Record<CalloutType, string> = {
+  note: '노트',
+  insight: '인사이트',
+  question: '질문',
+  warning: '주의',
+};
+---
+
+<aside class:list={['callout', `callout-${type}`]}>
+  <p class="callout-title">
+    <span class="callout-icon">{icons[type]}</span>
+    <span>{title ?? labels[type]}</span>
+  </p>
+  <div class="callout-body"><slot /></div>
+</aside>

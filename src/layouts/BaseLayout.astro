@@ -1,0 +1,78 @@
+---
+import '../styles/global.css';
+import 'katex/dist/katex.min.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  bare?: boolean; // true면 헤더/푸터 없이 풀블리드 (3D 지도용)
+}
+const { title = 'Paper Study', description = '논문 읽고 정리하는 공간', bare = false } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href={`${base}favicon.svg`} />
+    <script is:inline>
+      const t = localStorage.getItem('theme');
+      if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
+  </head>
+  <body class={bare ? 'is-bare' : ''}>
+    {
+      !bare && (
+        <header class="site-header">
+          <a class="brand" href={base}>◆ Paper Study</a>
+          <nav class="site-nav">
+            <a href={base}>지도</a>
+            <a href={`${base}list/`}>목록</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="테마 전환">🌗</button>
+          </nav>
+        </header>
+      )
+    }
+
+    {
+      bare ? (
+        <slot />
+      ) : (
+        <main class="site-main">
+          <slot />
+        </main>
+      )
+    }
+
+    {
+      !bare && (
+        <footer class="site-footer">
+          논문 스터디 노트 · 읽고, 정리하고, 다시 찾아보기
+        </footer>
+      )
+    }
+
+    {
+      !bare && (
+        <script is:inline>
+          document.getElementById('theme-toggle')?.addEventListener('click', () => {
+            const el = document.documentElement;
+            if (el.dataset.theme === 'dark') {
+              delete el.dataset.theme;
+              localStorage.setItem('theme', 'light');
+            } else {
+              el.dataset.theme = 'dark';
+              localStorage.setItem('theme', 'dark');
+            }
+          });
+        </script>
+      )
+    }
+  </body>
+</html>

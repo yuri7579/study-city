@@ -1,0 +1,47 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import NoteCard from '../components/NoteCard.astro';
+import { getCollection } from 'astro:content';
+
+const notes = (await getCollection('notes')).sort((a, b) => {
+  const rank = { done: 0, reading: 1, todo: 2 } as const;
+  const ra = rank[a.data.status], rb = rank[b.data.status];
+  if (ra !== rb) return ra - rb;
+  const da = a.data.date?.getTime() ?? 0;
+  const db = b.data.date?.getTime() ?? 0;
+  if (da !== db) return db - da;
+  return a.data.title.localeCompare(b.data.title);
+});
+
+const allTags = [...new Set(notes.flatMap((n) => n.data.tags))].sort();
+const counts = {
+  total: notes.length,
+  reading: notes.filter((n) => n.data.status === 'reading').length,
+  done: notes.filter((n) => n.data.status === 'done').length,
+};
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title="목록 · Paper Study">
+  <section class="hero">
+    <a class="back" href={base}>← 지도로 돌아가기</a>
+    <h1>논문 목록</h1>
+    <p class="hero-sub">전체 논문을 목록으로. 카드를 누르면 노트로 이동해요.</p>
+    <div class="stats">
+      <span><strong>{counts.total}</strong> 편</span>
+      <span><strong>{counts.reading}</strong> 읽는 중</span>
+      <span><strong>{counts.done}</strong> 완료</span>
+    </div>
+    {
+      allTags.length > 0 && (
+        <div class="tag-cloud">
+          {allTags.map((t) => <span class="tag">#{t}</span>)}
+        </div>
+      )
+    }
+  </section>
+
+  <section class="grid">
+    {notes.map((note) => <NoteCard note={note} />)}
+  </section>
+</BaseLayout>

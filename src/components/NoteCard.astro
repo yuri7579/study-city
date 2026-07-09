@@ -1,0 +1,36 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  note: CollectionEntry<'notes'>;
+}
+const { note } = Astro.props;
+const { title, venue, tags, status, date, summary } = note.data;
+
+const statusLabel: Record<typeof status, string> = {
+  todo: '읽을 예정',
+  reading: '읽는 중',
+  done: '완료',
+};
+const df = date
+  ? new Intl.DateTimeFormat('ko', { dateStyle: 'medium' }).format(date)
+  : null;
+const base = import.meta.env.BASE_URL;
+---
+
+<a class="card" href={`${base}notes/${note.id}/`}>
+  <div class="card-top">
+    <span class:list={['status', `status-${status}`]}>{statusLabel[status]}</span>
+    {venue && <span class="venue">{venue}</span>}
+  </div>
+  <h3 class="card-title">{title}</h3>
+  {summary && <p class="card-summary">{summary}</p>}
+  {
+    tags.length > 0 && (
+      <div class="card-tags">
+        {tags.map((t) => <span class="tag">#{t}</span>)}
+      </div>
+    )
+  }
+  {df && <div class="card-date">{df}</div>}
+</a>

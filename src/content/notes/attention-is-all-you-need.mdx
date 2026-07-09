@@ -1,0 +1,61 @@
+---
+title: Attention Is All You Need
+paper: Attention Is All You Need
+authors: Vaswani et al.
+venue: NeurIPS 2017
+date: 2026-07-09
+tags: [transformer, attention, nlp, sequence]
+status: reading
+cluster: sequence-models
+related: [mamba, tcn, vggt]
+arxiv: https://arxiv.org/abs/1706.03762
+summary: RNN·CNN 없이 self-attention만으로 시퀀스를 처리하는 Transformer 구조 제안.
+---
+
+import Callout from '../../components/Callout.astro';
+
+이 노트는 구조를 보여주려는 예시예요. 실제 내용은 같이 읽으면서 채워갈 거라 짧게만 적어뒀어요.
+
+## 한 줄 요약
+
+Recurrence 없이 self-attention만으로 시퀀스 의존성을 모델링한다.
+
+<Callout type="insight" title="왜 중요한가">
+  순차 계산(RNN)을 없애 병렬화가 가능해지고, 먼 거리 토큰 사이 의존성을 상수 시간 경로로 연결한다.
+</Callout>
+
+## Scaled Dot-Product Attention
+
+쿼리 $Q$, 키 $K$, 값 $V$에 대해:
+
+$$
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
+$$
+
+$\sqrt{d_k}$로 나누는 이유: $d_k$가 커지면 내적의 분산이 커져 softmax가 포화되고 gradient가 작아지기 때문.
+
+## Multi-Head Attention
+
+$$
+\mathrm{MultiHead}(Q, K, V) = \mathrm{Concat}(\mathrm{head}_1, \dots, \mathrm{head}_h)\, W^O
+$$
+
+여러 subspace에서 서로 다른 관계를 병렬로 본다.
+
+## 코드 감 잡기
+
+```python
+scores = (Q @ K.transpose(-2, -1)) / d_k**0.5
+attn = scores.softmax(dim=-1)
+out = attn @ V
+```
+
+<Callout type="question" title="더 볼 것">
+  - Positional encoding을 학습형으로 바꾸면 성능 차이는?
+  - head 수 $h$ 와 $d_k$ 사이의 트레이드오프
+</Callout>
+
+## 메모
+
+- Encoder–Decoder attention 흐름을 그림으로 다시 그려보기
+- 원 논문 Table 2(BLEU) 결과 확인
