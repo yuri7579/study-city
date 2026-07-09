@@ -1,0 +1,269 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { CLUSTERS } from '../data/clusters';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title="노트 작성 · Paper Study" bare={true}>
+  <div class="ed-wrap">
+    <header class="ed-bar">
+      <a class="ed-back" href={base}>← 지도</a>
+      <span class="ed-status-label" id="ed-status-label">새 노트</span>
+      <div class="ed-bar-right">
+        <span id="ed-save-state" class="ed-savestate"></span>
+        <button id="ed-token-btn" class="ed-btn ghost">🔑 토큰</button>
+        <button id="ed-save" class="ed-btn primary">저장</button>
+      </div>
+    </header>
+
+    <div class="ed-body">
+      <section class="ed-pane ed-edit">
+        <input id="f-title" class="ed-input ed-title-input" placeholder="논문 제목" />
+        <div class="ed-meta-row">
+          <select id="f-cluster" class="ed-input">
+            <option value="">클러스터(지도 색) 선택</option>
+            {CLUSTERS.map((c) => <option value={c.id}>{c.label}</option>)}
+          </select>
+          <select id="f-status" class="ed-input">
+            <option value="reading">읽는 중</option>
+            <option value="todo">읽을 예정</option>
+            <option value="done">완료</option>
+          </select>
+        </div>
+        <input id="f-tags" class="ed-input" placeholder="태그 (쉼표로 구분: transformer, rl) — 지도 연결에 쓰임" />
+        <div class="ed-meta-row">
+          <input id="f-venue" class="ed-input" placeholder="학회/저널 (선택)" />
+          <input id="f-arxiv" class="ed-input" placeholder="arXiv / 링크 (선택)" />
+        </div>
+        <input id="f-slug" class="ed-input ed-slug" placeholder="파일명 (제목에서 자동 생성)" />
+        <textarea id="f-body" class="ed-input ed-body" spellcheck="false"
+          placeholder="여기에 자유롭게 작성하세요.&#10;마크다운 + 수식($x$, $$...$$) 지원. 이미지는 붙여넣기 / 드래그하면 바로 들어가요."></textarea>
+      </section>
+
+      <section class="ed-pane ed-preview">
+        <article class="prose" id="ed-preview"></article>
+      </section>
+    </div>
+
+    <div id="ed-token-modal" class="ed-modal">
+      <div class="ed-modal-card">
+        <h3>GitHub 토큰 설정</h3>
+        <p class="ed-modal-desc">
+          사이트에서 바로 저장하려면 토큰이 필요해요. 이 토큰은 <b>이 브라우저에만</b> 저장되고,
+          오직 GitHub API로만 전송돼요 (제3자 서버 없음).
+        </p>
+        <ol class="ed-modal-steps">
+          <li>github.com/settings/personal-access-tokens/new (Fine-grained)</li>
+          <li>Repository access → Only select repositories → <b>study-city</b></li>
+          <li>Permissions → Contents → <b>Read and write</b></li>
+          <li>Generate → 복사해서 아래에 붙여넣기</li>
+        </ol>
+        <input id="ed-token-input" type="password" class="ed-input" placeholder="github_pat_... 붙여넣기" autocomplete="off" />
+        <div class="ed-modal-actions">
+          <button id="ed-token-clear" class="ed-btn ghost">삭제</button>
+          <button id="ed-token-cancel" class="ed-btn ghost">닫기</button>
+          <button id="ed-token-save" class="ed-btn primary">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { marked } from 'marked';
+    import renderMathInElement from 'katex/contrib/auto-render';
+    import { REPO, BRANCH, NOTES_DIR } from '../data/site';
+
+    const TOKEN_KEY = 'study-city-gh-token';
+    const $ = (id: string) => document.getElementById(id) as any;
+    const base = import.meta.env.BASE_URL;
+
+    const fTitle = $('f-title'), fCluster = $('f-cluster'), fStatus = $('f-status'),
+      fTags = $('f-tags'), fVenue = $('f-venue'), fArxiv = $('f-arxiv'),
+      fSlug = $('f-slug'), fBody = $('f-body'),
+      preview = $('ed-preview'), saveState = $('ed-save-state'), statusLabel = $('ed-status-label');
+
+    let slugEdited = false;
+    let editingExisting: string | null = null;
+    let existingRelated: string[] = [];
+
+    // ---------- slug ----------
+    function slugify(s: string) {
+      const b = (s || '').toLowerCase().trim()
+        .replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-+|-+$/g, '');
+      return b || 'note-' + Date.now();
+    }
+    fSlug.addEventListener('input', () => { slugEdited = true; });
+
+    // ---------- preview ----------
+    marked.setOptions({ breaks: true, gfm: true });
+    function renderPreview() {
+      preview.innerHTML = marked.parse(fBody.value || '') as string;
+      try {
+        renderMathInElement(preview, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true },
+          ],
+          throwOnError: false,
+        });
+      } catch (e) { /* noop */ }
+    }
+    fBody.addEventListener('input', renderPreview);
+    fTitle.addEventListener('input', () => {
+      if (!slugEdited && !editingExisting) fSlug.value = slugify(fTitle.value);
+    });
+
+    // ---------- 이미지 붙여넣기 / 드래그 ----------
+    function fileToDataUrl(file: File): Promise<string> {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const maxW = 1100;
+            const scale = Math.min(1, maxW / img.width);
+            const cw = Math.round(img.width * scale), ch = Math.round(img.height * scale);
+            const cv = document.createElement('canvas');
+            cv.width = cw; cv.height = ch;
+            cv.getContext('2d')!.drawImage(img, 0, 0, cw, ch);
+            res(cv.toDataURL('image/jpeg', 0.82));
+          };
+          img.onerror = rej;
+          img.src = r.result as string;
+        };
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+    }
+    function insertAtCursor(text: string) {
+      const s = fBody.selectionStart, e = fBody.selectionEnd, v = fBody.value;
+      fBody.value = v.slice(0, s) + text + v.slice(e);
+      fBody.selectionStart = fBody.selectionEnd = s + text.length;
+      renderPreview();
+    }
+    async function handleImage(file: File) {
+      saveState.textContent = '이미지 처리중…';
+      try { insertAtCursor(`\n![](${await fileToDataUrl(file)})\n`); saveState.textContent = ''; }
+      catch (e) { saveState.textContent = '이미지 실패'; }
+    }
+    fBody.addEventListener('paste', (e: any) => {
+      for (const it of e.clipboardData?.items || []) {
+        if (it.type && it.type.startsWith('image/')) { e.preventDefault(); const f = it.getAsFile(); if (f) handleImage(f); }
+      }
+    });
+    fBody.addEventListener('dragover', (e: any) => e.preventDefault());
+    fBody.addEventListener('drop', (e: any) => {
+      for (const f of e.dataTransfer?.files || []) {
+        if (f.type && f.type.startsWith('image/')) { e.preventDefault(); handleImage(f); }
+      }
+    });
+
+    // ---------- 토큰 ----------
+    const modal = $('ed-token-modal');
+    const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+    function updateTokenState() { $('ed-token-btn').textContent = getToken() ? '🔑 토큰 ✓' : '🔑 토큰 설정'; }
+    $('ed-token-btn').onclick = () => { $('ed-token-input').value = getToken(); modal.style.display = 'flex'; };
+    $('ed-token-cancel').onclick = () => { modal.style.display = 'none'; };
+    $('ed-token-save').onclick = () => {
+      const t = $('ed-token-input').value.trim();
+      if (t) localStorage.setItem(TOKEN_KEY, t);
+      modal.style.display = 'none'; updateTokenState();
+    };
+    $('ed-token-clear').onclick = () => { localStorage.removeItem(TOKEN_KEY); $('ed-token-input').value = ''; updateTokenState(); };
+
+    // ---------- 파일 만들기 ----------
+    const esc = (s: string) => JSON.stringify(s || '');
+    function buildFile() {
+      const tags = fTags.value.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const today = new Date().toISOString().slice(0, 10);
+      const fm = [
+        '---',
+        `title: ${esc(fTitle.value.trim() || '제목 없음')}`,
+        fVenue.value.trim() ? `venue: ${esc(fVenue.value.trim())}` : 'venue:',
+        `date: ${today}`,
+        `tags: [${tags.join(', ')}]`,
+        `status: ${fStatus.value || 'reading'}`,
+        `cluster: ${fCluster.value || ''}`,
+        `related: [${existingRelated.join(', ')}]`,
+        fArxiv.value.trim() ? `arxiv: ${fArxiv.value.trim()}` : 'arxiv:',
+        'summary:',
+        '---',
+        '',
+      ].join('\n');
+      return fm + (fBody.value || '') + '\n';
+    }
+    function toB64(str: string) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = ''; const ch = 0x8000;
+      for (let i = 0; i < bytes.length; i += ch) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + ch) as any);
+      return btoa(bin);
+    }
+
+    // ---------- 저장 ----------
+    async function save() {
+      const token = getToken();
+      if (!token) { modal.style.display = 'flex'; return; }
+      const slug = (fSlug.value.trim() || slugify(fTitle.value)).replace(/[^a-zA-Z0-9가-힣_-]/g, '');
+      if (!slug) { saveState.textContent = '파일명을 정하세요'; return; }
+      const apiUrl = `https://api.github.com/repos/${REPO}/contents/${NOTES_DIR}/${encodeURIComponent(slug)}.md`;
+      saveState.textContent = '저장중…';
+      try {
+        let sha: string | undefined;
+        const getRes = await fetch(apiUrl + `?ref=${BRANCH}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+        });
+        if (getRes.status === 200) { sha = (await getRes.json()).sha; }
+        else if (getRes.status === 401) { saveState.textContent = '토큰이 잘못됐어요 (다시 설정)'; return; }
+        const body: any = { message: `note: ${slug}`, content: toB64(buildFile()), branch: BRANCH };
+        if (sha) body.sha = sha;
+        const putRes = await fetch(apiUrl, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (putRes.ok) {
+          saveState.innerHTML = `✅ 저장됨 · 1~2분 뒤 반영 · <a href="${base}notes/${slug}/">노트 보기</a>`;
+        } else {
+          saveState.textContent = `실패 ${putRes.status}: ${(await putRes.text()).slice(0, 120)}`;
+        }
+      } catch (e: any) { saveState.textContent = '에러: ' + e.message; }
+    }
+    $('ed-save').onclick = save;
+
+    // ---------- 기존 노트 불러오기 ----------
+    async function loadExisting() {
+      const slug = new URLSearchParams(location.search).get('slug');
+      if (!slug) return;
+      editingExisting = slug; slugEdited = true;
+      statusLabel.textContent = '편집: ' + slug;
+      fSlug.value = slug;
+      try {
+        const raw = await fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/${NOTES_DIR}/${encodeURIComponent(slug)}.md?t=${Date.now()}`);
+        if (!raw.ok) return;
+        const text = await raw.text();
+        const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+        if (!m) { fBody.value = text; renderPreview(); return; }
+        const fm = m[1];
+        const get = (k: string) => { const r = fm.match(new RegExp('^' + k + ':\\s*(.*)$', 'm')); return r ? r[1].trim() : ''; };
+        const unq = (v: string) => { if (!v) return ''; try { return JSON.parse(v); } catch (e) { return v.replace(/^["']|["']$/g, ''); } };
+        const arr = (v: string) => v.replace(/^\[|\]$/g, '').split(',').map((s) => s.trim()).filter(Boolean);
+        fTitle.value = unq(get('title'));
+        fVenue.value = unq(get('venue'));
+        fArxiv.value = get('arxiv');
+        fCluster.value = get('cluster');
+        fStatus.value = get('status') || 'reading';
+        fTags.value = arr(get('tags')).join(', ');
+        existingRelated = arr(get('related'));
+        fBody.value = m[2].replace(/^\n+/, '');
+        renderPreview();
+      } catch (e) { /* noop */ }
+    }
+
+    updateTokenState();
+    renderPreview();
+    loadExisting();
+  </script>
+</BaseLayout>

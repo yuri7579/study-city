@@ -9,14 +9,3 @@ arxiv:
 summary:
 ---
 
-import Callout from '../../components/Callout.astro';
-
-## 한 줄 요약
-
-## 핵심 아이디어
-
-## 방법
-
-## 실험·결과
-
-## 메모

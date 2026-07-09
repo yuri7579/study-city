@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// 모든 노트를 '빈 템플릿'으로 초기화(덮어쓰기).
-// 지도용 구조(title/venue/tags/cluster/related/arxiv)는 남기고,
-// summary와 본문은 비워서 사용자가 직접 채우게 함.
+// 모든 노트를 '빈 자유폼 .md'로 초기화(덮어쓰기).
+// 지도용 구조(title/venue/tags/cluster/related/arxiv)만 남기고, 본문은 완전히 비움
+// (목차/섹션 강요 없음 — 사용자가 사이트 에디터에서 자유롭게 작성).
 //   node scripts/reset-notes.mjs
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -33,20 +33,6 @@ const papers = [
 ];
 
 const q = (s) => JSON.stringify(s);
-const body = `
-import Callout from '../../components/Callout.astro';
-
-## 한 줄 요약
-
-## 핵심 아이디어
-
-## 방법
-
-## 실험·결과
-
-## 메모
-`;
-
 let n = 0;
 for (const p of papers) {
   const fm = [
@@ -60,8 +46,10 @@ for (const p of papers) {
     p.arxiv ? `arxiv: ${p.arxiv}` : 'arxiv:',
     'summary:',
     '---',
+    '',
+    '',
   ].join('\n');
-  writeFileSync(join(notesDir, `${p.slug}.mdx`), fm + '\n' + body);
+  writeFileSync(join(notesDir, `${p.slug}.md`), fm);
   n++;
 }
-console.log(`${n}개 노트를 빈 템플릿으로 초기화함 → ${notesDir}`);
+console.log(`${n}개 노트를 빈 .md로 초기화함 → ${notesDir}`);

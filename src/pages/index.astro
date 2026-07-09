@@ -2,7 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { CLUSTERS, CLUSTER_COLOR, DEFAULT_COLOR } from '../data/clusters';
-import { newNoteUrl } from '../data/site';
+import { writeNewUrl } from '../data/site';
 
 const notes = await getCollection('notes');
 const base = import.meta.env.BASE_URL;
@@ -53,7 +53,7 @@ const count = nodes.length;
       <p class="map-sub">{count}편의 논문이 연관도로 이어진 네온 도시. 좌우로 돌려보고, 타워를 클릭하면 노트로 들어가요.</p>
       <div class="map-actions">
         <a class="map-listlink" href={`${base}list/`}>목록으로 보기 →</a>
-        <a class="map-listlink map-newlink" href={newNoteUrl()} target="_blank" rel="noopener">+ 새 노트 쓰기</a>
+        <a class="map-listlink map-newlink" href={writeNewUrl()}>+ 새 노트 쓰기</a>
       </div>
     </div>
 
