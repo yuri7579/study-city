@@ -218,13 +218,13 @@ const count = nodes.length;
           const c = document.createElement('canvas');
           c.width = 64; c.height = 256;
           const x = c.getContext('2d')!;
-          x.fillStyle = '#05060e';
+          x.fillStyle = '#04040c';
           x.fillRect(0, 0, 64, 256);
           for (let r = 0; r < 42; r++) {
             for (let k = 0; k < 7; k++) {
-              if (Math.random() < 0.45) continue;
+              if (Math.random() < 0.62) continue;
               x.fillStyle = pickHex();
-              x.globalAlpha = 0.35 + Math.random() * 0.6;
+              x.globalAlpha = 0.18 + Math.random() * 0.4;
               x.fillRect(k * 9 + 2, r * 6 + 2, 5, 3);
             }
           }
@@ -235,21 +235,86 @@ const count = nodes.length;
         };
         const facadeMats = Array.from({ length: 6 }, () => new THREE.MeshBasicMaterial({ map: facadeTexture() }));
 
-        // 예시: 건물 1~2채만 배치해서 룩 확인 (맘에 들면 전체 도시로 확장)
-        const makeBuilding = (x: number, z: number, w: number, d: number, h: number) => {
+        // 어두운 바닥 + 중앙 발광(땅 반사 느낌)
+        const groundCanvas = document.createElement('canvas');
+        groundCanvas.width = groundCanvas.height = 256;
+        const gx = groundCanvas.getContext('2d')!;
+        const gg = gx.createRadialGradient(128, 128, 8, 128, 128, 128);
+        gg.addColorStop(0, '#2a1850');
+        gg.addColorStop(0.5, '#120a24');
+        gg.addColorStop(1, '#07060f');
+        gx.fillStyle = gg;
+        gx.fillRect(0, 0, 256, 256);
+        const floor = new THREE.Mesh(
+          new THREE.PlaneGeometry(2800, 2800),
+          new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(groundCanvas) }),
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -1.5;
+        scene.add(floor);
+
+        // 밀집 마천루 — 가운데(논문 노드)는 비우고 바깥으로 갈수록 높아짐
+        const city = new THREE.Group();
+        for (let i = 0; i < 220; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const rad = 300 + Math.random() * 520;
+          const t = (rad - 300) / 520;
+          const w = 8 + Math.random() * 18;
+          const d = 8 + Math.random() * 18;
+          const h = 20 + t * 200 * (0.5 + Math.random() * 0.7);
           const geo = new THREE.BoxGeometry(w, h, d);
           const mesh = new THREE.Mesh(geo, facadeMats[(Math.random() * facadeMats.length) | 0]);
-          mesh.position.set(x, h / 2 - 2, z);
-          scene.add(mesh);
-          const edge = new THREE.LineSegments(
-            new THREE.EdgesGeometry(geo),
-            new THREE.LineBasicMaterial({ color: pickNeon(), transparent: true, opacity: 0.5 }),
-          );
-          edge.position.copy(mesh.position);
-          scene.add(edge);
+          mesh.position.set(Math.cos(ang) * rad, h / 2 - 2, Math.sin(ang) * rad);
+          city.add(mesh);
+          if (Math.random() < 0.45) {
+            const edge = new THREE.LineSegments(
+              new THREE.EdgesGeometry(geo),
+              new THREE.LineBasicMaterial({ color: pickNeon(), transparent: true, opacity: 0.22 }),
+            );
+            edge.position.copy(mesh.position);
+            city.add(edge);
+          }
+        }
+        scene.add(city);
+
+        // 홀로그램 빌보드
+        const boardTexture = () => {
+          const c = document.createElement('canvas');
+          c.width = 128; c.height = 160;
+          const bx = c.getContext('2d')!;
+          const bgrad = bx.createLinearGradient(0, 0, 128, 160);
+          bgrad.addColorStop(0, pickHex());
+          bgrad.addColorStop(1, pickHex());
+          bx.fillStyle = bgrad;
+          bx.fillRect(0, 0, 128, 160);
+          bx.globalAlpha = 0.4;
+          bx.fillStyle = pickHex();
+          for (let i = 0; i < 5; i++) bx.fillRect(8, 16 + i * 28, 112, 9);
+          return new THREE.CanvasTexture(c);
         };
-        makeBuilding(130, 70, 26, 26, 150);
-        makeBuilding(-120, -55, 22, 30, 112);
+        for (let i = 0; i < 8; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const rad = 360 + Math.random() * 320;
+          const board = new THREE.Mesh(
+            new THREE.PlaneGeometry(36 + Math.random() * 60, 60 + Math.random() * 90),
+            new THREE.MeshBasicMaterial({ map: boardTexture(), transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
+          );
+          board.position.set(Math.cos(ang) * rad, 45 + Math.random() * 120, Math.sin(ang) * rad);
+          board.lookAt(0, board.position.y, 0);
+          scene.add(board);
+        }
+
+        // 네온 먼지
+        const PC = 450;
+        const pos = new Float32Array(PC * 3);
+        for (let i = 0; i < PC; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * 1600;
+          pos[i * 3 + 1] = Math.random() * 520;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 1600;
+        }
+        const pg = new THREE.BufferGeometry();
+        pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        scene.add(new THREE.Points(pg, new THREE.PointsMaterial({ color: 0x7fe6ff, size: 1.3, transparent: true, opacity: 0.4, depthWrite: false })));
       } catch (e) { console.warn('city skipped', e); }
 
       // 블룸(네온 발광)
@@ -258,7 +323,7 @@ const count = nodes.length;
           try {
             const bloom = new UnrealBloomPass(
               new THREE.Vector2(el.clientWidth, el.clientHeight),
-              1.55, 0.9, 0.0,
+              0.85, 0.75, 0.7,
             );
             Graph.postProcessingComposer().addPass(bloom);
           } catch (e) { console.warn('bloom skipped', e); }
