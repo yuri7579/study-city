@@ -184,8 +184,9 @@ body.is-bare { overflow: hidden; }
   position: relative; width: 100%;
   height: 100vh; height: 100dvh; overflow: hidden;
   background:
-    radial-gradient(120% 90% at 50% 108%, #3a0d52 0%, #1a0a36 42%, #0a0618 100%),
-    linear-gradient(180deg, #06040f 0%, #0a0618 100%);
+    radial-gradient(100% 58% at 50% 100%, rgba(124,92,255,0.30) 0%, rgba(255,45,214,0.15) 26%, rgba(8,8,26,0) 60%),
+    radial-gradient(60% 36% at 50% 103%, rgba(34,211,238,0.20) 0%, rgba(8,8,26,0) 58%),
+    linear-gradient(180deg, #0a0a1e 0%, #0d0b24 55%, #120a2e 100%);
 }
 .map-canvas { position: absolute; inset: 0; }
 
@@ -232,3 +233,22 @@ body.is-bare { overflow: hidden; }
   .map-tl { max-width: 80vw; }
   .map-hint { font-size: .72rem; }
 }
+
+/* map: 액션 버튼들 (목록 / 새 노트) */
+.map-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.map-newlink { color: #ff8ad4; border-color: rgba(255,138,212,.5); }
+.map-newlink:hover { background: rgba(255,138,212,.16); box-shadow: 0 0 16px rgba(255,138,212,.32); }
+
+/* 노트 페이지: GitHub 편집 링크 */
+.note-edit {
+  float: right; font-size: .82rem; color: var(--accent);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; background: var(--surface);
+}
+.note-edit:hover { text-decoration: none; border-color: var(--accent); background: var(--surface-2); }
+
+/* 목록 페이지: 새 노트 버튼 */
+.new-note-btn {
+  display: inline-block; margin-left: 12px; font-size: .85rem; font-weight: 600;
+  color: #fff; background: var(--accent); border-radius: 999px; padding: 6px 14px;
+}
+.new-note-btn:hover { text-decoration: none; opacity: .9; }

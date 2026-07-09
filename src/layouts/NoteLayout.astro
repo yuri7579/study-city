@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import type { CollectionEntry } from 'astro:content';
+import { editUrl } from '../data/site';
 
 interface Props {
   note: CollectionEntry<'notes'>;
@@ -21,6 +22,7 @@ const base = import.meta.env.BASE_URL;
 
 <BaseLayout title={`${title} · Paper Study`} description={summary ?? title}>
   <article class="note">
+    <a class="note-edit" href={editUrl(note.id)} target="_blank" rel="noopener">✎ 편집</a>
     <a class="back" href={base}>← 목록으로</a>
 
     <header class="note-header">

@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { CLUSTERS, CLUSTER_COLOR, DEFAULT_COLOR } from '../data/clusters';
+import { newNoteUrl } from '../data/site';
 
 const notes = await getCollection('notes');
 const base = import.meta.env.BASE_URL;
@@ -49,8 +50,11 @@ const count = nodes.length;
     <div class="map-overlay map-tl">
       <a class="map-brand" href={base}>◆ PAPER&nbsp;STUDY</a>
       <h1 class="map-title">논문 지도</h1>
-      <p class="map-sub">{count}편의 논문이 연관도로 이어진 네온 도시. 드래그로 회전, 스크롤로 확대, 타워를 클릭하면 노트로 들어가요.</p>
-      <a class="map-listlink" href={`${base}list/`}>목록으로 보기 →</a>
+      <p class="map-sub">{count}편의 논문이 연관도로 이어진 네온 도시. 좌우로 돌려보고, 타워를 클릭하면 노트로 들어가요.</p>
+      <div class="map-actions">
+        <a class="map-listlink" href={`${base}list/`}>목록으로 보기 →</a>
+        <a class="map-listlink map-newlink" href={newNoteUrl()} target="_blank" rel="noopener">+ 새 노트 쓰기</a>
+      </div>
     </div>
 
     <div class="map-overlay map-tr map-legend">
@@ -65,7 +69,7 @@ const count = nodes.length;
     </div>
 
     <div class="map-overlay map-bl">
-      <span class="map-hint">드래그 회전 · 스크롤 확대 · 타워 클릭 → 노트</span>
+      <span class="map-hint">좌우 드래그 회전 · 두 손가락(우클릭) 드래그 이동 · 스크롤 확대 · 클릭 → 노트</span>
     </div>
 
     <noscript>
@@ -73,6 +77,18 @@ const count = nodes.length;
         3D 지도는 자바스크립트가 필요해요. <a class="map-listlink" href={`${base}list/`}>목록으로 보기</a>
       </div>
     </noscript>
+
+    <div id="map-err" style="display:none; position:absolute; left:22px; bottom:56px; z-index:9; max-width:82vw; color:#ff9a9a; font:12px/1.45 ui-monospace,monospace; background:rgba(30,0,10,.62); padding:8px 11px; border-radius:8px; white-space:pre-wrap;"></div>
+    <script is:inline>
+      window.addEventListener('error', (e) => {
+        const d = document.getElementById('map-err');
+        if (d) {
+          d.style.display = 'block';
+          d.textContent = 'ERR: ' + (e.message || (e.error && e.error.message)) +
+            '  @' + ((e.filename || '').split('/').pop()) + ':' + e.lineno;
+        }
+      });
+    </script>
 
     <script type="application/json" id="graph-data" set:html={JSON.stringify(graphData)}></script>
   </div>
@@ -99,7 +115,7 @@ const count = nodes.length;
       const short = (s: string) => (s.length > 26 ? s.slice(0, 25) + '…' : s);
       let hovered: string | null = null;
 
-      const Graph = new ForceGraph3D(el)
+      const Graph = new ForceGraph3D(el, { controlType: 'orbit' })
         .backgroundColor('rgba(0,0,0,0)')
         .graphData(data)
         .showNavInfo(false)
@@ -113,12 +129,12 @@ const count = nodes.length;
           const geo = new THREE.BoxGeometry(3.4, h, 3.4);
           const body = new THREE.Mesh(
             geo,
-            new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.07 : 0.18 }),
+            new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.13 : 0.2 }),
           );
           body.position.y = h / 2;
           const edges = new THREE.LineSegments(
             new THREE.EdgesGeometry(geo),
-            new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.5 : 0.95 }),
+            new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.72 : 0.98 }),
           );
           edges.position.y = h / 2;
           group.add(body);
@@ -154,6 +170,18 @@ const count = nodes.length;
           if (n && n.url) window.location.href = n.url;
         });
 
+      // 컨트롤: 좌우(수평) 회전만 + 평행이동(팬) 켜기
+      try {
+        const controls: any = Graph.controls();
+        controls.enablePan = true;
+        controls.screenSpacePanning = true;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.12;
+        const polar = 1.12; // ≈64°, 상하 틸트 고정(도시를 살짝 위에서)
+        controls.minPolarAngle = polar;
+        controls.maxPolarAngle = polar;
+      } catch (e) { /* noop */ }
+
       // 바닥 네온 그리드
       try {
         const grid = new THREE.GridHelper(760, 76, 0x3ad0ff, 0x1c3c5c);
@@ -163,10 +191,10 @@ const count = nodes.length;
         Graph.scene().add(grid);
       } catch (e) { /* noop */ }
 
-      // 안개(포그)
-      try { Graph.scene().fog = new THREE.FogExp2(0x0a0618, 0.0016); } catch (e) { /* noop */ }
+      // 안개(포그) — 밤안개
+      try { Graph.scene().fog = new THREE.FogExp2(0x0b0a1e, 0.0016); } catch (e) { /* noop */ }
 
-      // 노드를 바닥 평면으로 눌러서 '도시 footprint' 만들기 + 타워 위로 솟게
+      // 노드를 바닥 평면으로 눌러서 '도시 footprint' + 타워 위로 솟게
       try {
         Graph.d3Force('flatten', ((alpha: number) => {
           for (const n of data.nodes) n.vy = (n.vy || 0) - (n.y || 0) * 0.22 * alpha;
@@ -174,8 +202,55 @@ const count = nodes.length;
         (Graph.d3Force('charge') as any)?.strength(-95);
       } catch (e) { /* noop */ }
 
-      // 카메라: 스카이라인 보이게 비스듬히
+      // 카메라
       try { Graph.cameraPosition({ x: 30, y: 135, z: 250 }, { x: 0, y: 12, z: 0 }, 0); } catch (e) { /* noop */ }
+
+      // ===== 나이트시티 배경 (Edgerunners 느낌) =====
+      try {
+        const scene = Graph.scene();
+        const neonPalette = [0x22d3ee, 0xff3df0, 0x7c5cff, 0x00ffa3, 0xffd23d, 0xff5d73, 0x33e0ff];
+        const pickNeon = () => neonPalette[(Math.random() * neonPalette.length) | 0];
+        const neonHex = ['#22d3ee', '#ff3df0', '#7c5cff', '#00ffa3', '#ffd23d', '#ff5d73', '#33e0ff'];
+        const pickHex = () => neonHex[(Math.random() * neonHex.length) | 0];
+
+        // 창문이 빛나는 파사드 텍스처 여러 종(공유)
+        const facadeTexture = () => {
+          const c = document.createElement('canvas');
+          c.width = 64; c.height = 256;
+          const x = c.getContext('2d')!;
+          x.fillStyle = '#05060e';
+          x.fillRect(0, 0, 64, 256);
+          for (let r = 0; r < 42; r++) {
+            for (let k = 0; k < 7; k++) {
+              if (Math.random() < 0.45) continue;
+              x.fillStyle = pickHex();
+              x.globalAlpha = 0.35 + Math.random() * 0.6;
+              x.fillRect(k * 9 + 2, r * 6 + 2, 5, 3);
+            }
+          }
+          x.globalAlpha = 1;
+          const t = new THREE.CanvasTexture(c);
+          t.magFilter = THREE.NearestFilter;
+          return t;
+        };
+        const facadeMats = Array.from({ length: 6 }, () => new THREE.MeshBasicMaterial({ map: facadeTexture() }));
+
+        // 예시: 건물 1~2채만 배치해서 룩 확인 (맘에 들면 전체 도시로 확장)
+        const makeBuilding = (x: number, z: number, w: number, d: number, h: number) => {
+          const geo = new THREE.BoxGeometry(w, h, d);
+          const mesh = new THREE.Mesh(geo, facadeMats[(Math.random() * facadeMats.length) | 0]);
+          mesh.position.set(x, h / 2 - 2, z);
+          scene.add(mesh);
+          const edge = new THREE.LineSegments(
+            new THREE.EdgesGeometry(geo),
+            new THREE.LineBasicMaterial({ color: pickNeon(), transparent: true, opacity: 0.5 }),
+          );
+          edge.position.copy(mesh.position);
+          scene.add(edge);
+        };
+        makeBuilding(130, 70, 26, 26, 150);
+        makeBuilding(-120, -55, 22, 30, 112);
+      } catch (e) { console.warn('city skipped', e); }
 
       // 블룸(네온 발광)
       import('three/examples/jsm/postprocessing/UnrealBloomPass.js')
@@ -183,7 +258,7 @@ const count = nodes.length;
           try {
             const bloom = new UnrealBloomPass(
               new THREE.Vector2(el.clientWidth, el.clientHeight),
-              1.15, 0.75, 0.08,
+              1.55, 0.9, 0.0,
             );
             Graph.postProcessingComposer().addPass(bloom);
           } catch (e) { console.warn('bloom skipped', e); }
