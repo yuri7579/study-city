@@ -34,7 +34,7 @@ jobs:
       - name: AI 자동 분류 (GitHub Models, cluster 비어있는 노트)
         run: node scripts/categorize.mjs
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_MODELS_TOKEN: ${{ github.token }}
 
       - name: 분류 결과 커밋백
         run: |
