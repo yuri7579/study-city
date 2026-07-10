@@ -38,12 +38,12 @@ jobs:
 
       - name: 분류 결과 커밋백
         run: |
-          if git diff --quiet -- src/content/notes; then
-            echo "변경 없음 (분류할 노트 없거나 키 미설정)"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "변경 없음 (분류할 노트 없거나 호출 실패)"
           else
             git config user.name "study-city-bot"
             git config user.email "actions@users.noreply.github.com"
-            git add src/content/notes
             git commit -m "chore: AI 자동 분류 [skip ci]"
             git push
           fi

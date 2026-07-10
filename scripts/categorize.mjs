@@ -39,6 +39,7 @@ for (const f of files) {
   const c = unquote(getField(fm, 'cluster'));
   if (c) existing.add(c);
 }
+const errors = [];
 
 async function classify(title, body) {
   const system = '너는 논문 스터디 노트를 분류하는 도우미다. 반드시 JSON 객체 하나만 출력한다.';
@@ -71,7 +72,7 @@ ${(body || '').slice(0, 5000) || '(본문 없음 — 제목만 보고 판단)'}
       max_tokens: 400,
     }),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 600)}`);
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('빈 응답');
@@ -105,7 +106,16 @@ for (const f of files) {
     console.log(`분류: ${f} → ${out.cluster}  [${(out.tags || []).join(', ')}]`);
   } catch (e) {
     console.warn(`실패 ${f}: ${e.message}`);
+    errors.push(`${f}: ${e.message}`);
   }
 }
 
-console.log(`완료: ${changed}개 분류됨`);
+if (errors.length) {
+  try {
+    writeFileSync(
+      join(__dirname, '..', 'categorize-debug.txt'),
+      `MODEL=${MODEL}\nENDPOINT=${ENDPOINT}\n\n` + errors.join('\n\n') + '\n',
+    );
+  } catch {}
+}
+console.log(`완료: ${changed}개 분류됨, 에러 ${errors.length}건`);
