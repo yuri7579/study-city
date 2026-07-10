@@ -27,7 +27,8 @@ if (!TOKEN) {
 }
 
 const getField = (fm, key) => {
-  const m = fm.match(new RegExp('^' + key + ':\\s*(.*)$', 'm'));
+  // [ \t]* 만 사용 — \s* 는 줄바꿈까지 먹어서 빈 값일 때 다음 줄을 읽는 버그가 있음
+  const m = fm.match(new RegExp('^' + key + ':[ \\t]*(.*)$', 'm'));
   return m ? m[1].trim() : '';
 };
 const setField = (fm, key, value) => {
