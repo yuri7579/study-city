@@ -38,9 +38,9 @@ jobs:
 
       - name: 분류 결과 커밋백
         run: |
-          git add -A
+          git add src/content/notes
           if git diff --staged --quiet; then
-            echo "변경 없음 (분류할 노트 없거나 호출 실패)"
+            echo "변경 없음 (분류할 노트 없음)"
           else
             git config user.name "study-city-bot"
             git config user.email "actions@users.noreply.github.com"
