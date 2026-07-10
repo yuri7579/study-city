@@ -6,7 +6,7 @@ import rehypeKatex from 'rehype-katex';
 
 // 로컬 개발/빌드는 base '/', GitHub Actions 빌드에서만 '/study-city'.
 // (프로젝트 페이지 → https://yuri7579.github.io/study-city/)
-const base = process.env.GITHUB_ACTIONS ? '/study-city' : '/';
+const base = process.env.GITHUB_ACTIONS ? '/study-city/' : '/';
 
 export default defineConfig({
   site: 'https://yuri7579.github.io',
