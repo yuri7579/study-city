@@ -1,8 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { CLUSTERS } from '../data/clusters';
 
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <BaseLayout title="노트 작성 · Paper Study" bare={true}>
@@ -21,10 +20,7 @@ const base = import.meta.env.BASE_URL;
       <section class="ed-pane ed-edit">
         <input id="f-title" class="ed-input ed-title-input" placeholder="논문 제목" />
         <div class="ed-meta-row">
-          <select id="f-cluster" class="ed-input">
-            <option value="">클러스터(지도 색) 선택</option>
-            {CLUSTERS.map((c) => <option value={c.id}>{c.label}</option>)}
-          </select>
+          <input id="f-cluster" class="ed-input" placeholder="분류 (선택) — 비워두면 자동 분류 예정" />
           <select id="f-status" class="ed-input">
             <option value="reading">읽는 중</option>
             <option value="todo">읽을 예정</option>

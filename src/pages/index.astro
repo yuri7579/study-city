@@ -1,18 +1,21 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
-import { CLUSTERS, CLUSTER_COLOR, DEFAULT_COLOR } from '../data/clusters';
+import { buildClusterColors, DEFAULT_COLOR } from '../data/clusters';
 import { writeNewUrl } from '../data/site';
 
 const notes = await getCollection('notes');
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+// ---- 분류(색)를 노트에서 동적으로 뽑음 ----
+const clusterColors = buildClusterColors(notes.map((n) => n.data.cluster));
 
 // ---- 노드 ----
 const nodes = notes.map((n) => ({
   id: n.id,
   name: n.data.title,
   cluster: n.data.cluster ?? 'other',
-  color: CLUSTER_COLOR[n.data.cluster ?? ''] ?? DEFAULT_COLOR,
+  color: clusterColors[n.data.cluster ?? ''] ?? DEFAULT_COLOR,
   status: n.data.status,
   url: `${base}notes/${n.id}/`,
 }));
@@ -39,7 +42,7 @@ const links = [...linkW.entries()].map(([key, value]) => {
 });
 
 const graphData = { nodes, links };
-const clustersInUse = CLUSTERS.filter((c) => nodes.some((n) => n.cluster === c.id));
+const clustersInUse = Object.entries(clusterColors).map(([id, color]) => ({ id, label: id, color }));
 const count = nodes.length;
 ---
 

@@ -1,20 +1,18 @@
-export interface Cluster {
-  id: string;
-  label: string;
-  color: string; // 네온 팔레트 (사이버펑크 도시)
-}
+// 미리 정해진 분류 목록은 없음.
+// 노트 frontmatter의 cluster 값에서 실제 존재하는 분류만 모아 색을 동적으로 부여한다.
+// (분류는 사용자가 직접 적거나, 나중에 AI가 자동으로 채울 수 있음)
 
-export const CLUSTERS: Cluster[] = [
-  { id: 'sequence-models',        label: '시퀀스 모델',      color: '#22d3ee' }, // cyan
-  { id: 'vision',                 label: '비전·파운데이션',   color: '#00ffa3' }, // neon green
-  { id: 'reinforcement-learning', label: '강화학습',         color: '#ff9f1c' }, // amber
-  { id: 'continuum-robot',        label: '연속체·수술로봇',   color: '#ff3df0' }, // magenta
-  { id: 'pose-estimation',        label: '포즈 추정',        color: '#ffe14d' }, // yellow
-  { id: 'image-translation',      label: '이미지 변환·생성',  color: '#ff4d6d' }, // red-pink
+export const PALETTE = [
+  '#22d3ee', '#00ffa3', '#ff9f1c', '#ff3df0', '#ffe14d', '#ff4d6d',
+  '#7c5cff', '#33e0ff', '#9dff4d', '#ff7847', '#4dd4ff', '#c86bff',
 ];
 
-export const CLUSTER_COLOR: Record<string, string> = Object.fromEntries(
-  CLUSTERS.map((c) => [c.id, c.color]),
-);
-
 export const DEFAULT_COLOR = '#8ab4ff';
+
+// 분류 이름들 → {이름: 색} 매핑 (정렬 순서 기준으로 팔레트 배정)
+export function buildClusterColors(names: (string | null | undefined)[]): Record<string, string> {
+  const sorted = [...new Set(names.filter((n): n is string => !!n))].sort();
+  const map: Record<string, string> = {};
+  sorted.forEach((n, i) => { map[n] = PALETTE[i % PALETTE.length]; });
+  return map;
+}
