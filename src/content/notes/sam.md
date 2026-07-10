@@ -2,12 +2,12 @@
 title: "Segment Anything (SAM)"
 venue: "ICCV 2023"
 date: 2026-07-10
-tags: []
+tags: ["image segmentation", "foundation model", "zero-shot", "promptable", "mask"]
 status: reading
-cluster:
+cluster: "이미지 분할"
 related: []
 arxiv: https://arxiv.org/abs/2304.02643
-summary:
+summary: "프롬프트를 통해 이미지에서 객체를 분할하는 비전 모델."
 ---
 
 프롬프트(점, 박스, 대략적 마스크)로 이미지에서 무엇이든 분할하는 비전 파운데이션 모델.
