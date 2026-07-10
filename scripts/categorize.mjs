@@ -3,7 +3,7 @@
 // - cluster(분류) + tags(지도 연결) + summary(요약)를 채움 (비어있는 필드만).
 // - 토큰(GH_MODELS_TOKEN)이 없으면 조용히 스킵. (로컬 실행 시 스킵)
 //   ※ env 이름 'GITHUB_TOKEN' 은 GitHub 예약이라 무시됨 → GH_MODELS_TOKEN 사용.
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +38,11 @@ const setField = (fm, key, value) => {
 const unquote = (v) => v.replace(/^["']|["']$/g, '');
 const isEmptyList = (v) => v.replace(/^\[|\]$/g, '').trim() === '';
 
+if (!existsSync(notesDir)) {
+  console.log('노트 폴더 없음 → 스킵');
+  writeStatus();
+  process.exit(0);
+}
 const files = readdirSync(notesDir).filter((f) => f.endsWith('.md'));
 
 const existing = new Set();
