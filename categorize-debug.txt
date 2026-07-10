@@ -1,0 +1,8 @@
+{
+  "hasToken": true,
+  "model": "openai/gpt-4o-mini",
+  "endpoint": "https://models.github.ai/inference/chat/completions",
+  "processed": 0,
+  "changed": 0,
+  "errors": []
+}
