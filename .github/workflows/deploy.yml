@@ -6,11 +6,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # AI 분류 결과를 소스에 커밋백하기 위해 write
   pages: write
   id-token: write
 
-# 동시에 한 번만 배포
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -21,9 +20,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build Astro site
-        uses: withastro/action@v3
-        # 저장소 루트가 Astro 프로젝트라 별도 path 설정 불필요
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: AI 자동 분류 (cluster 비어있는 노트)
+        run: node scripts/categorize.mjs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: 분류 결과 커밋백
+        run: |
+          if git diff --quiet -- src/content/notes; then
+            echo "변경 없음 (분류할 노트 없거나 키 미설정)"
+          else
+            git config user.name "study-city-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add src/content/notes
+            git commit -m "chore: AI 자동 분류 [skip ci]"
+            git push
+          fi
+
+      - name: Build (base=/study-city/)
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
 
   deploy:
     needs: build
