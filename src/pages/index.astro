@@ -7,10 +7,8 @@ import { writeNewUrl } from '../data/site';
 const notes = await getCollection('notes');
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
-// ---- 분류(색)를 노트에서 동적으로 뽑음 ----
 const clusterColors = buildClusterColors(notes.map((n) => n.data.cluster));
 
-// ---- 노드 ----
 const nodes = notes.map((n) => ({
   id: n.id,
   name: n.data.title,
@@ -20,7 +18,6 @@ const nodes = notes.map((n) => ({
   url: `${base}notes/${n.id}/`,
 }));
 
-// ---- 엣지: 태그 공유 + 명시적 related ----
 const ids = new Set(notes.map((n) => n.id));
 const linkW = new Map<string, number>();
 const addLink = (a: string, b: string, w: number) => {
@@ -49,11 +46,12 @@ const count = nodes.length;
 <BaseLayout title="Paper Study — 논문 지도" bare={true}>
   <div class="map-wrap">
     <div id="graph" class="map-canvas"></div>
+    <div class="map-vignette"></div>
 
     <div class="map-overlay map-tl">
       <a class="map-brand" href={base}>◆ PAPER&nbsp;STUDY</a>
       <h1 class="map-title">논문 지도</h1>
-      <p class="map-sub">{count}편의 논문이 연관도로 이어진 네온 도시. 좌우로 돌려보고, 타워를 클릭하면 노트로 들어가요.</p>
+      <p class="map-sub">{count}편의 논문이 연관도로 이어진 네온 도시. 좌우로 돌려보고, 타워를 클릭하면 노트로.</p>
       <div class="map-actions">
         <a class="map-listlink" href={`${base}list/`}>목록으로 보기 →</a>
         <a class="map-listlink map-newlink" href={writeNewUrl()}>+ 새 노트 쓰기</a>
@@ -107,7 +105,6 @@ const count = nodes.length;
     if (el && dataEl) {
       const data = JSON.parse(dataEl.textContent || '{"nodes":[],"links":[]}');
 
-      // 인접 정보
       const neighbors = new Map<string, Set<string>>();
       for (const n of data.nodes) neighbors.set(n.id, new Set());
       for (const l of data.links) {
@@ -125,79 +122,70 @@ const count = nodes.length;
         .nodeThreeObjectExtend(false)
         .nodeThreeObject((n: any) => {
           const conns = neighbors.get(n.id)?.size || 0;
-          const h = 7 + Math.min(conns, 7) * 3.4;
+          const h = 9 + Math.min(conns, 7) * 3.4;
           const col = new THREE.Color(n.color || '#8ab4ff');
           const dim = n.status === 'todo';
           const group = new THREE.Group();
-          const geo = new THREE.BoxGeometry(3.4, h, 3.4);
+          const geo = new THREE.BoxGeometry(3.6, h, 3.6);
           const body = new THREE.Mesh(
             geo,
-            new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.13 : 0.2 }),
+            new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.16 : 0.24 }),
           );
           body.position.y = h / 2;
           const edges = new THREE.LineSegments(
             new THREE.EdgesGeometry(geo),
-            new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.72 : 0.98 }),
+            new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: dim ? 0.8 : 1 }),
           );
           edges.position.y = h / 2;
           group.add(body);
           group.add(edges);
           const label = new SpriteText(short(n.name));
           label.color = n.color || '#cfe6ff';
-          label.textHeight = 2.4;
+          label.textHeight = 2.6;
           (label as any).fontWeight = '600';
           label.material.depthWrite = false;
           label.center.y = 0;
-          label.position.y = h + 2.6;
+          label.position.y = h + 2.8;
           group.add(label);
           return group;
         })
-        .linkColor(() => 'rgba(130,200,255,0.22)')
-        .linkWidth(0.5)
-        .linkOpacity(0.55)
+        .linkColor(() => 'rgba(140,205,255,0.25)')
+        .linkWidth(0.6)
+        .linkOpacity(0.6)
         .onNodeHover((n: any) => {
           hovered = n ? n.id : null;
           el.style.cursor = n ? 'pointer' : '';
           Graph
             .linkColor((l: any) => {
-              if (!hovered) return 'rgba(130,200,255,0.22)';
+              if (!hovered) return 'rgba(140,205,255,0.25)';
               const s = idOf(l.source), t = idOf(l.target);
-              return s === hovered || t === hovered ? 'rgba(190,235,255,0.9)' : 'rgba(120,120,160,0.05)';
+              return s === hovered || t === hovered ? 'rgba(200,240,255,0.95)' : 'rgba(120,120,160,0.06)';
             })
             .linkWidth((l: any) => {
               const s = idOf(l.source), t = idOf(l.target);
-              return hovered && (s === hovered || t === hovered) ? 1.5 : 0.5;
+              return hovered && (s === hovered || t === hovered) ? 1.6 : 0.6;
             });
         })
         .onNodeClick((n: any) => {
           if (n && n.url) window.location.href = n.url;
         });
 
-      // 컨트롤: 좌우(수평) 회전만 + 평행이동(팬) 켜기
+      // 컨트롤: 좌우(수평) 회전만 + 평행이동(팬)
       try {
         const controls: any = Graph.controls();
         controls.enablePan = true;
         controls.screenSpacePanning = true;
         controls.enableDamping = true;
         controls.dampingFactor = 0.12;
-        const polar = 1.12; // ≈64°, 상하 틸트 고정(도시를 살짝 위에서)
+        const polar = 1.32;
         controls.minPolarAngle = polar;
         controls.maxPolarAngle = polar;
       } catch (e) { /* noop */ }
 
-      // 바닥 네온 그리드
-      try {
-        const grid = new THREE.GridHelper(760, 76, 0x3ad0ff, 0x1c3c5c);
-        (grid.material as any).transparent = true;
-        (grid.material as any).opacity = 0.28;
-        grid.position.y = -0.5;
-        Graph.scene().add(grid);
-      } catch (e) { /* noop */ }
+      // 밤안개
+      try { Graph.scene().fog = new THREE.FogExp2(0x0a0a1e, 0.0017); } catch (e) { /* noop */ }
 
-      // 안개(포그) — 밤안개
-      try { Graph.scene().fog = new THREE.FogExp2(0x0b0a1e, 0.0016); } catch (e) { /* noop */ }
-
-      // 노드를 바닥 평면으로 눌러서 '도시 footprint' + 타워 위로 솟게
+      // 노드를 바닥 평면으로 (도시 플라자)
       try {
         Graph.d3Force('flatten', ((alpha: number) => {
           for (const n of data.nodes) n.vy = (n.vy || 0) - (n.y || 0) * 0.22 * alpha;
@@ -205,10 +193,12 @@ const count = nodes.length;
         (Graph.d3Force('charge') as any)?.strength(-95);
       } catch (e) { /* noop */ }
 
-      // 카메라
-      try { Graph.cameraPosition({ x: 30, y: 135, z: 250 }, { x: 0, y: 12, z: 0 }, 0); } catch (e) { /* noop */ }
+      // 카메라: 낮게, 도시에 감싸이는 구도
+      try { Graph.cameraPosition({ x: 15, y: 78, z: 205 }, { x: 0, y: 22, z: 0 }, 0); } catch (e) { /* noop */ }
 
-      // ===== 나이트시티 배경 (Edgerunners 느낌) =====
+      // ===== 나이트시티: 젖은 거리 + 반사 + 모션 =====
+      const beacons: any[] = [];
+      let dust: any = null;
       try {
         const scene = Graph.scene();
         const neonPalette = [0x22d3ee, 0xff3df0, 0x7c5cff, 0x00ffa3, 0xffd23d, 0xff5d73, 0x33e0ff];
@@ -216,7 +206,7 @@ const count = nodes.length;
         const neonHex = ['#22d3ee', '#ff3df0', '#7c5cff', '#00ffa3', '#ffd23d', '#ff5d73', '#33e0ff'];
         const pickHex = () => neonHex[(Math.random() * neonHex.length) | 0];
 
-        // 창문이 빛나는 파사드 텍스처 여러 종(공유)
+        // 창문 파사드 텍스처
         const facadeTexture = () => {
           const c = document.createElement('canvas');
           c.width = 64; c.height = 256;
@@ -225,9 +215,9 @@ const count = nodes.length;
           x.fillRect(0, 0, 64, 256);
           for (let r = 0; r < 42; r++) {
             for (let k = 0; k < 7; k++) {
-              if (Math.random() < 0.62) continue;
+              if (Math.random() < 0.6) continue;
               x.fillStyle = pickHex();
-              x.globalAlpha = 0.18 + Math.random() * 0.4;
+              x.globalAlpha = 0.2 + Math.random() * 0.45;
               x.fillRect(k * 9 + 2, r * 6 + 2, 5, 3);
             }
           }
@@ -238,87 +228,96 @@ const count = nodes.length;
         };
         const facadeMats = Array.from({ length: 6 }, () => new THREE.MeshBasicMaterial({ map: facadeTexture() }));
 
-        // 어두운 바닥 + 중앙 발광(땅 반사 느낌)
-        const groundCanvas = document.createElement('canvas');
-        groundCanvas.width = groundCanvas.height = 256;
-        const gx = groundCanvas.getContext('2d')!;
-        const gg = gx.createRadialGradient(128, 128, 8, 128, 128, 128);
-        gg.addColorStop(0, '#2a1850');
-        gg.addColorStop(0.5, '#120a24');
-        gg.addColorStop(1, '#07060f');
-        gx.fillStyle = gg;
-        gx.fillRect(0, 0, 256, 256);
-        const floor = new THREE.Mesh(
-          new THREE.PlaneGeometry(2800, 2800),
-          new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(groundCanvas) }),
+        // 젖은 거리 바닥 (반투명 어두움 — 아래 반사가 비침)
+        const wet = new THREE.Mesh(
+          new THREE.PlaneGeometry(3200, 3200),
+          new THREE.MeshBasicMaterial({ color: 0x05060f, transparent: true, opacity: 0.7 }),
         );
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -1.5;
-        scene.add(floor);
+        wet.rotation.x = -Math.PI / 2;
+        wet.position.y = 0.02;
+        scene.add(wet);
 
-        // 밀집 마천루 — 가운데(논문 노드)는 비우고 바깥으로 갈수록 높아짐
+        // 도시 (가운데는 비우고 바깥으로 높아짐, 바닥에 밀착)
         const city = new THREE.Group();
-        for (let i = 0; i < 220; i++) {
+        for (let i = 0; i < 270; i++) {
           const ang = Math.random() * Math.PI * 2;
-          const rad = 300 + Math.random() * 520;
-          const t = (rad - 300) / 520;
-          const w = 8 + Math.random() * 18;
-          const d = 8 + Math.random() * 18;
-          const h = 20 + t * 200 * (0.5 + Math.random() * 0.7);
+          const rad = 150 + Math.random() * 650;
+          const t = (rad - 150) / 650;
+          const w = 8 + Math.random() * 20;
+          const d = 8 + Math.random() * 20;
+          const h = 18 + t * 320 * (0.5 + Math.random() * 0.8);
           const geo = new THREE.BoxGeometry(w, h, d);
           const mesh = new THREE.Mesh(geo, facadeMats[(Math.random() * facadeMats.length) | 0]);
-          mesh.position.set(Math.cos(ang) * rad, h / 2 - 2, Math.sin(ang) * rad);
+          mesh.position.set(Math.cos(ang) * rad, h / 2, Math.sin(ang) * rad);
           city.add(mesh);
-          if (Math.random() < 0.45) {
+          if (Math.random() < 0.4) {
             const edge = new THREE.LineSegments(
               new THREE.EdgesGeometry(geo),
-              new THREE.LineBasicMaterial({ color: pickNeon(), transparent: true, opacity: 0.22 }),
+              new THREE.LineBasicMaterial({ color: pickNeon(), transparent: true, opacity: 0.28 }),
             );
             edge.position.copy(mesh.position);
             city.add(edge);
           }
+          // 높은 빌딩 옥상 경광등 (깜빡임)
+          if (h > 140 && Math.random() < 0.4) {
+            const beacon = new THREE.Mesh(
+              new THREE.SphereGeometry(1.4, 8, 8),
+              new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: 1 }),
+            );
+            beacon.position.set(mesh.position.x, h + 1.5, mesh.position.z);
+            beacon.userData.phase = Math.random() * 6.28;
+            scene.add(beacon);
+            beacons.push(beacon);
+          }
         }
         scene.add(city);
 
-        // 홀로그램 빌보드
-        const boardTexture = () => {
-          const c = document.createElement('canvas');
-          c.width = 128; c.height = 160;
-          const bx = c.getContext('2d')!;
-          const bgrad = bx.createLinearGradient(0, 0, 128, 160);
-          bgrad.addColorStop(0, pickHex());
-          bgrad.addColorStop(1, pickHex());
-          bx.fillStyle = bgrad;
-          bx.fillRect(0, 0, 128, 160);
-          bx.globalAlpha = 0.4;
-          bx.fillStyle = pickHex();
-          for (let i = 0; i < 5; i++) bx.fillRect(8, 16 + i * 28, 112, 9);
-          return new THREE.CanvasTexture(c);
-        };
-        for (let i = 0; i < 8; i++) {
-          const ang = Math.random() * Math.PI * 2;
-          const rad = 360 + Math.random() * 320;
-          const board = new THREE.Mesh(
-            new THREE.PlaneGeometry(36 + Math.random() * 60, 60 + Math.random() * 90),
-            new THREE.MeshBasicMaterial({ map: boardTexture(), transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
-          );
-          board.position.set(Math.cos(ang) * rad, 45 + Math.random() * 120, Math.sin(ang) * rad);
-          board.lookAt(0, board.position.y, 0);
-          scene.add(board);
-        }
+        // 반사: 도시를 아래로 미러링(어둡게)
+        const refl = city.clone(true);
+        refl.scale.y = -1;
+        refl.position.y = -0.05;
+        refl.traverse((o: any) => {
+          if (o.material) {
+            o.material = o.material.clone();
+            o.material.transparent = true;
+            o.material.opacity = (o.material.opacity ?? 1) * 0.32;
+            o.material.depthWrite = false;
+          }
+        });
+        scene.add(refl);
 
-        // 네온 먼지
-        const PC = 450;
+        // 옅은 그리드(거리 라인) — 젖은 바닥 위 살짝
+        const grid = new THREE.GridHelper(900, 90, 0x2aa8d8, 0x143048);
+        (grid.material as any).transparent = true;
+        (grid.material as any).opacity = 0.12;
+        grid.position.y = 0.06;
+        scene.add(grid);
+
+        // 흐르는 네온 먼지
+        const PC = 650;
         const pos = new Float32Array(PC * 3);
         for (let i = 0; i < PC; i++) {
-          pos[i * 3] = (Math.random() - 0.5) * 1600;
+          pos[i * 3] = (Math.random() - 0.5) * 1700;
           pos[i * 3 + 1] = Math.random() * 520;
-          pos[i * 3 + 2] = (Math.random() - 0.5) * 1600;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 1700;
         }
         const pg = new THREE.BufferGeometry();
         pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        scene.add(new THREE.Points(pg, new THREE.PointsMaterial({ color: 0x7fe6ff, size: 1.3, transparent: true, opacity: 0.4, depthWrite: false })));
+        dust = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0x8fd8ff, size: 1.4, transparent: true, opacity: 0.42, depthWrite: false }));
+        scene.add(dust);
       } catch (e) { console.warn('city skipped', e); }
+
+      // 모션 루프 (깜빡이는 경광등 + 흐르는 먼지)
+      let _t = 0;
+      const animate = () => {
+        _t += 0.016;
+        for (const b of beacons) {
+          b.material.opacity = 0.18 + 0.82 * Math.abs(Math.sin(_t * 2.2 + b.userData.phase));
+        }
+        if (dust) dust.rotation.y = _t * 0.008;
+        requestAnimationFrame(animate);
+      };
+      requestAnimationFrame(animate);
 
       // 블룸(네온 발광)
       import('three/examples/jsm/postprocessing/UnrealBloomPass.js')
@@ -326,14 +325,13 @@ const count = nodes.length;
           try {
             const bloom = new UnrealBloomPass(
               new THREE.Vector2(el.clientWidth, el.clientHeight),
-              0.85, 0.75, 0.7,
+              1.1, 0.85, 0.55,
             );
             Graph.postProcessingComposer().addPass(bloom);
           } catch (e) { console.warn('bloom skipped', e); }
         })
         .catch(() => { /* 블룸 없어도 동작 */ });
 
-      // 리사이즈
       const resize = () => { Graph.width(el.clientWidth); Graph.height(el.clientHeight); };
       resize();
       window.addEventListener('resize', resize);

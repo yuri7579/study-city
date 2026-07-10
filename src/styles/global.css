@@ -189,6 +189,10 @@ body.is-bare { overflow: hidden; }
     linear-gradient(180deg, #0a0a1e 0%, #0d0b24 55%, #120a2e 100%);
 }
 .map-canvas { position: absolute; inset: 0; }
+.map-vignette {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 48%, rgba(4,3,14,0.62) 100%);
+}
 
 .map-overlay { position: absolute; z-index: 5; color: #e8e6ff;
   font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif; }
