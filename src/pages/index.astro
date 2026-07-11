@@ -225,11 +225,11 @@ const count = nodes.length;
         const mc = document.createElement('canvas'); mc.width = mc.height = 256;
         const mx = mc.getContext('2d')!;
         const mg = mx.createRadialGradient(128, 128, 6, 128, 128, 128);
-        mg.addColorStop(0, 'rgba(255,247,232,1)'); mg.addColorStop(0.34, 'rgba(255,240,224,1)');
-        mg.addColorStop(0.4, 'rgba(255,175,190,0.4)'); mg.addColorStop(0.62, 'rgba(255,90,150,0.12)'); mg.addColorStop(1, 'rgba(255,90,150,0)');
+        mg.addColorStop(0, 'rgba(238,234,228,0.9)'); mg.addColorStop(0.32, 'rgba(228,218,210,0.72)');
+        mg.addColorStop(0.44, 'rgba(255,165,185,0.26)'); mg.addColorStop(0.66, 'rgba(255,90,150,0.09)'); mg.addColorStop(1, 'rgba(255,90,150,0)');
         mx.fillStyle = mg; mx.fillRect(0, 0, 256, 256);
-        const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(mc), transparent: true, depthWrite: false, fog: false, opacity: 0.9 }));
-        moon.scale.set(290, 290, 1); moon.position.set(-380, 400, -980);
+        const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(mc), transparent: true, depthWrite: false, fog: false, opacity: 0.58 }));
+        moon.scale.set(260, 260, 1); moon.position.set(-380, 405, -980);
         scene.add(moon);
 
         // 원경 도시 실루엣 (어둡게, 안개 속으로 사라짐 — AI 상자 느낌 X)
@@ -339,7 +339,7 @@ const count = nodes.length;
             }`,
         };
         const mirror = new Reflector(new THREE.PlaneGeometry(6000, 6000), {
-          color: 0x0b0d16,
+          color: 0x080a12,
           textureWidth: Math.round(1024 * dpr),
           textureHeight: Math.round(1024 * dpr),
           clipBias: 0.003,
@@ -350,7 +350,7 @@ const count = nodes.length;
         mirrorMat = mirror.material;
         // 아스팔트 그레인 오버레이(반투명) — 반사 위에 젖은 노면 질감
         const asOverlay = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000),
-          new THREE.MeshBasicMaterial({ map: asphalt, transparent: true, opacity: 0.48, depthWrite: false }));
+          new THREE.MeshBasicMaterial({ map: asphalt, transparent: true, opacity: 0.62, depthWrite: false }));
         asOverlay.rotation.x = -Math.PI / 2; asOverlay.position.y = 0.03;
         scene.add(asOverlay);
 
@@ -362,7 +362,7 @@ const count = nodes.length;
         }
 
         // 폭우 (비 줄기)
-        const RN = 6000;
+        const RN = 2600;
         rainBase = new Float32Array(RN * 3); // x, y, z per streak
         rainPos = new Float32Array(RN * 6);
         const streak = 11;
@@ -376,7 +376,7 @@ const count = nodes.length;
         }
         const rg = new THREE.BufferGeometry();
         rg.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-        rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false }));
+        rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }));
         scene.add(rain);
 
         // 서치라이트 (하늘 쓸기)
@@ -482,7 +482,7 @@ const count = nodes.length;
       ]).then(([{ UnrealBloomPass }, { ShaderPass }, { SMAAPass }, { OutputPass }]) => {
         try {
           const composer = Graph.postProcessingComposer();
-          const bloom = new UnrealBloomPass(new THREE.Vector2(el.clientWidth, el.clientHeight), 1.35, 0.85, 0.32);
+          const bloom = new UnrealBloomPass(new THREE.Vector2(el.clientWidth, el.clientHeight), 1.18, 0.8, 0.42);
           composer.addPass(bloom);
           try { composer.addPass(new SMAAPass(el.clientWidth, el.clientHeight)); } catch (e) { /* smaa optional */ }
           const grade = new ShaderPass({
@@ -497,7 +497,7 @@ const count = nodes.length;
               'float rand(vec2 c){ return fract(sin(dot(c, vec2(12.9898,78.233)))*43758.5453); }',
               'void main(){',
               '  vec2 uv = vUv; vec2 d = uv - 0.5; float r2 = dot(d,d);',
-              '  float ca = 0.0011 + r2*0.0030;',
+              '  float ca = 0.0006 + r2*0.0014;',
               '  vec3 col;',
               '  col.r = texture2D(tDiffuse, uv + d*ca).r;',
               '  col.g = texture2D(tDiffuse, uv).g;',
@@ -507,8 +507,7 @@ const count = nodes.length;
               '  col *= vec3(0.98, 1.0, 1.05);',
               '  col *= 1.08;',
               '  float vig = smoothstep(1.3, 0.45, r2*2.6);',
-              '  col *= mix(0.8, 1.0, vig);',
-              '  col += (rand(uv*uRes*0.5 + uTime) - 0.5) * 0.02;',
+              '  col *= mix(0.82, 1.0, vig);',
               '  gl_FragColor = vec4(max(col, 0.0), 1.0);',
               '}',
             ].join('\n'),
