@@ -343,13 +343,22 @@ const count = nodes.length;
           shader: RShader,
         });
         mirror.rotation.x = -Math.PI / 2; mirror.position.y = 0;
-        scene.add(mirror);
-        mirrorMat = mirror.material;
-        // 아스팔트 그레인 오버레이(반투명) — 반사 위에 젖은 노면 질감
-        const asOverlay = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000),
-          new THREE.MeshBasicMaterial({ map: asphalt, transparent: true, opacity: 0.58, depthWrite: false }));
-        asOverlay.rotation.x = -Math.PI / 2; asOverlay.position.y = 0.03;
-        scene.add(asOverlay);
+        // Reflector 미사용: 회전 시 반사 앨리어싱(검은 계단 노이즈) 때문에 씬에 추가하지 않음
+        void mirror;
+        // 깔끔한 젖은 노면(불투명, 반사 없음) + 중앙 은은한 광택
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000),
+          new THREE.MeshBasicMaterial({ map: asphalt }));
+        floor.rotation.x = -Math.PI / 2; floor.position.y = 0.02;
+        scene.add(floor);
+        const shc = document.createElement('canvas'); shc.width = shc.height = 256;
+        const shx = shc.getContext('2d')!;
+        const shg = shx.createRadialGradient(128, 128, 0, 128, 128, 128);
+        shg.addColorStop(0, 'rgba(80,140,195,0.26)'); shg.addColorStop(0.5, 'rgba(55,105,165,0.09)'); shg.addColorStop(1, 'rgba(0,0,0,0)');
+        shx.fillStyle = shg; shx.fillRect(0, 0, 256, 256);
+        const sheen = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500),
+          new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
+        sheen.rotation.x = -Math.PI / 2; sheen.position.y = 0.05;
+        scene.add(sheen);
 
         // 은은한 네온 도로 라인
         const roadMat = new THREE.MeshBasicMaterial({ color: 0x2ad0ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
