@@ -201,6 +201,7 @@ const count = nodes.length;
         const polar = 1.34;
         controls.minPolarAngle = polar; controls.maxPolarAngle = polar;
         controls.autoRotate = true; controls.autoRotateSpeed = 0.28;
+        controls.minDistance = 80; controls.maxDistance = 620;
         controls.addEventListener('start', () => { controls.autoRotate = false; if (idleT) clearTimeout(idleT); });
         controls.addEventListener('end', () => { if (idleT) clearTimeout(idleT); idleT = setTimeout(() => { controls.autoRotate = true; }, 3500); });
       } catch (e) { /* noop */ }
@@ -249,11 +250,25 @@ const count = nodes.length;
             }
           }
         };
-        addSil(340, 220, 90, 300, 90, 0x101026);     // 아주 가까운(플라자 둘러쌈)
-        addSil(520, 320, 120, 430, 150, 0x0e0e1e);   // 가까운
-        addSil(820, 520, 140, 520, 190, 0x0b0b16);   // 중경
-        addSil(1250, 700, 160, 560, 150, 0x090912);  // 원경
+        // 배경 건물은 '멀리 낮게'만 — 줌아웃해도 노트를 절대 안 가림
+        addSil(1050, 500, 70, 320, 150, 0x0c0c1a);
+        addSil(1500, 780, 90, 380, 170, 0x090912);
         scene.add(skyline);
+        // 원경 도시 불빛(작은 점들 — 멀리 켜진 창/간판)
+        {
+          const N = 540, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+          const pal = [[1, 0.24, 0.94], [0.13, 0.83, 0.93], [1, 0.62, 0.24], [0.75, 0.85, 1]];
+          for (let i = 0; i < N; i++) {
+            const ang = Math.random() * Math.PI * 2, rad = 1000 + Math.random() * 1150;
+            pos[i * 3] = Math.cos(ang) * rad; pos[i * 3 + 1] = 8 + Math.random() * 360; pos[i * 3 + 2] = Math.sin(ang) * rad;
+            const c = pal[(Math.random() * pal.length) | 0];
+            col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+          }
+          const cg = new THREE.BufferGeometry();
+          cg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+          cg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+          scene.add(new THREE.Points(cg, new THREE.PointsMaterial({ size: 4.5, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })));
+        }
 
         // 젖은 아스팔트 노면 (그레인 + 얼룩 텍스처)
         const ac = document.createElement('canvas'); ac.width = ac.height = 512;
@@ -340,8 +355,8 @@ const count = nodes.length;
         // 공중 네온 haze
         for (let i = 0; i < 14; i++) {
           const haze = new THREE.Sprite(new THREE.SpriteMaterial({ map: HAZE[i % HAZE.length], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
-          const ang = Math.random() * Math.PI * 2, rad = 520 + Math.random() * 640;
-          haze.position.set(Math.cos(ang) * rad, 40 + Math.random() * 220, Math.sin(ang) * rad);
+          const ang = Math.random() * Math.PI * 2, rad = 850 + Math.random() * 720;
+          haze.position.set(Math.cos(ang) * rad, 40 + Math.random() * 240, Math.sin(ang) * rad);
           const s = 340 + Math.random() * 300; haze.scale.set(s, s, 1);
           scene.add(haze);
         }
@@ -349,8 +364,8 @@ const count = nodes.length;
         for (let i = 0; i < 10; i++) {
           const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: HAZE[i % HAZE.length], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.4 }));
           const ang = (i / 10) * Math.PI * 2 + 0.3;
-          g.position.set(Math.cos(ang) * 760, 30, Math.sin(ang) * 760);
-          g.scale.set(560, 300, 1);
+          g.position.set(Math.cos(ang) * 1150, 30, Math.sin(ang) * 1150);
+          g.scale.set(680, 320, 1);
           scene.add(g);
         }
         // 젖은 노면 네온 반사 줄기(세로로 늘어진 빛) — 진짜 젖은 거리 느낌
@@ -384,8 +399,8 @@ const count = nodes.length;
         for (let i = 0; i < 22; i++) {
           const bar = new THREE.Mesh(new THREE.PlaneGeometry(4 + Math.random() * 6, 40 + Math.random() * 120),
             new THREE.MeshBasicMaterial({ color: DOTC[(Math.random() * 3) | 0], transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
-          const ang = Math.random() * Math.PI * 2, rad = 460 + Math.random() * 560;
-          bar.position.set(Math.cos(ang) * rad, 70 + Math.random() * 220, Math.sin(ang) * rad);
+          const ang = Math.random() * Math.PI * 2, rad = 900 + Math.random() * 700;
+          bar.position.set(Math.cos(ang) * rad, 80 + Math.random() * 260, Math.sin(ang) * rad);
           bar.lookAt(0, bar.position.y, 0);
           scene.add(bar);
         }
