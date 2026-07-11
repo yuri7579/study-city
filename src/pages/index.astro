@@ -100,6 +100,7 @@ const count = nodes.length;
     import ForceGraph3D from '3d-force-graph';
     import SpriteText from 'three-spritetext';
     import * as THREE from 'three';
+    import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 
     // 노트 타워용: 클러스터 색으로 tint되는 흰 창문 파사드
     const makeNoteFacade = () => {
@@ -214,7 +215,7 @@ const count = nodes.length;
       try { Graph.cameraPosition({ x: 8, y: 58, z: 205 }, { x: 0, y: 28, z: -30 }, 0); } catch (e) { /* noop */ }
 
       // ===== 시네마틱 네온 느와르 씬 =====
-      let rain: any = null, rainPos: any = null, rainBase: any = null;
+      let rain: any = null, rainPos: any = null, rainBase: any = null, mirrorMat: any = null, gradeMat: any = null;
       const vehicles: any[] = [];
       const lights: any[] = [];
       try {
@@ -227,8 +228,8 @@ const count = nodes.length;
         mg.addColorStop(0, 'rgba(255,247,232,1)'); mg.addColorStop(0.34, 'rgba(255,240,224,1)');
         mg.addColorStop(0.4, 'rgba(255,175,190,0.4)'); mg.addColorStop(0.62, 'rgba(255,90,150,0.12)'); mg.addColorStop(1, 'rgba(255,90,150,0)');
         mx.fillStyle = mg; mx.fillRect(0, 0, 256, 256);
-        const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(mc), transparent: true, depthWrite: false, fog: false, opacity: 0.98 }));
-        moon.scale.set(310, 310, 1); moon.position.set(-380, 395, -980);
+        const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(mc), transparent: true, depthWrite: false, fog: false, opacity: 0.9 }));
+        moon.scale.set(290, 290, 1); moon.position.set(-380, 400, -980);
         scene.add(moon);
 
         // 원경 도시 실루엣 (어둡게, 안개 속으로 사라짐 — AI 상자 느낌 X)
@@ -286,10 +287,72 @@ const count = nodes.length;
           axx.fillStyle = gg; axx.beginPath(); axx.arc(px, py, r, 0, 7); axx.fill();
         }
         const asphalt = new THREE.CanvasTexture(ac);
-        asphalt.wrapS = asphalt.wrapT = THREE.RepeatWrapping; asphalt.repeat.set(7, 7);
-        const wet = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ map: asphalt }));
-        wet.rotation.x = -Math.PI / 2; wet.position.y = 0.02;
-        scene.add(wet);
+        asphalt.wrapS = asphalt.wrapT = THREE.RepeatWrapping; asphalt.repeat.set(12, 12);
+        // 진짜 반사 젖은 바닥 (Reflector + 물결 리플 셰이더) — 네온 타워·달·간판이 일렁이며 비침
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const rpc = document.createElement('canvas'); rpc.width = rpc.height = 256;
+        const rpx = rpc.getContext('2d')!;
+        const rpImg = rpx.createImageData(256, 256);
+        for (let i = 0; i < 256 * 256; i++) { rpImg.data[i * 4] = Math.random() * 255; rpImg.data[i * 4 + 1] = Math.random() * 255; rpImg.data[i * 4 + 2] = 128; rpImg.data[i * 4 + 3] = 255; }
+        rpx.putImageData(rpImg, 0, 0);
+        rpx.filter = 'blur(2px)'; rpx.drawImage(rpc, 0, 0); rpx.filter = 'none';
+        const ripTex = new THREE.CanvasTexture(rpc); ripTex.wrapS = ripTex.wrapT = THREE.RepeatWrapping;
+        const RShader = {
+          uniforms: {
+            color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
+            tRipple: { value: ripTex }, uTime: { value: 0 }, uStrength: { value: 0.028 },
+          },
+          vertexShader: `
+            uniform mat4 textureMatrix;
+            varying vec4 vUv;
+            varying vec3 vW;
+            #include <common>
+            #include <logdepthbuf_pars_vertex>
+            void main() {
+              vUv = textureMatrix * vec4( position, 1.0 );
+              vW = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+              #include <logdepthbuf_vertex>
+            }`,
+          fragmentShader: `
+            uniform vec3 color;
+            uniform sampler2D tDiffuse;
+            uniform sampler2D tRipple;
+            uniform float uTime;
+            uniform float uStrength;
+            varying vec4 vUv;
+            varying vec3 vW;
+            #include <logdepthbuf_pars_fragment>
+            float blendOverlay( float b, float a ){ return ( b < 0.5 ? (2.0*b*a) : (1.0 - 2.0*(1.0-b)*(1.0-a)) ); }
+            vec3 blendOverlay( vec3 b, vec3 a ){ return vec3( blendOverlay(b.r,a.r), blendOverlay(b.g,a.g), blendOverlay(b.b,a.b) ); }
+            void main() {
+              #include <logdepthbuf_fragment>
+              vec2 rc = vW.xz * 0.006;
+              vec2 r1 = texture2D( tRipple, rc + vec2(0.0, uTime*0.02) ).rg;
+              vec2 r2 = texture2D( tRipple, rc*2.1 - vec2(uTime*0.014, 0.0) ).rg;
+              vec2 rip = ((r1 + r2) - 1.0) * uStrength;
+              vec4 uvR = vUv; uvR.xy += rip * vUv.w;
+              vec4 base = texture2DProj( tDiffuse, uvR );
+              gl_FragColor = vec4( blendOverlay( base.rgb, color ), 1.0 );
+              #include <tonemapping_fragment>
+              #include <colorspace_fragment>
+            }`,
+        };
+        const mirror = new Reflector(new THREE.PlaneGeometry(6000, 6000), {
+          color: 0x0b0d16,
+          textureWidth: Math.round(1024 * dpr),
+          textureHeight: Math.round(1024 * dpr),
+          clipBias: 0.003,
+          shader: RShader,
+        });
+        mirror.rotation.x = -Math.PI / 2; mirror.position.y = 0;
+        scene.add(mirror);
+        mirrorMat = mirror.material;
+        // 아스팔트 그레인 오버레이(반투명) — 반사 위에 젖은 노면 질감
+        const asOverlay = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000),
+          new THREE.MeshBasicMaterial({ map: asphalt, transparent: true, opacity: 0.48, depthWrite: false }));
+        asOverlay.rotation.x = -Math.PI / 2; asOverlay.position.y = 0.03;
+        scene.add(asOverlay);
 
         // 은은한 네온 도로 라인
         const roadMat = new THREE.MeshBasicMaterial({ color: 0x2ad0ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -368,33 +431,7 @@ const count = nodes.length;
           g.scale.set(680, 320, 1);
           scene.add(g);
         }
-        // 젖은 노면 네온 반사 줄기(세로로 늘어진 빛) — 진짜 젖은 거리 느낌
-        const RCOL = [[255, 61, 240], [34, 211, 238], [255, 157, 61], [124, 92, 255], [255, 93, 176]];
-        const mkStreak = (rgb: number[]) => {
-          const c = document.createElement('canvas'); c.width = 24; c.height = 256;
-          const x = c.getContext('2d')!;
-          const lg = x.createLinearGradient(0, 0, 0, 256);
-          lg.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.92)`);
-          lg.addColorStop(0.4, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.3)`);
-          lg.addColorStop(1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0)`);
-          x.fillStyle = lg; x.fillRect(0, 0, 24, 256);
-          const hg = x.createLinearGradient(0, 0, 24, 0);
-          hg.addColorStop(0, 'rgba(0,0,0,1)'); hg.addColorStop(0.5, 'rgba(0,0,0,0)'); hg.addColorStop(1, 'rgba(0,0,0,1)');
-          x.globalCompositeOperation = 'destination-out'; x.fillStyle = hg; x.fillRect(0, 0, 24, 256);
-          const t = new THREE.CanvasTexture(c);
-          return t;
-        };
-        const STREAK = RCOL.map(mkStreak);
-        for (let i = 0; i < 24; i++) {
-          const len = 110 + Math.random() * 220, wid = 6 + Math.random() * 11;
-          const m = new THREE.Mesh(new THREE.PlaneGeometry(wid, len), new THREE.MeshBasicMaterial({ map: STREAK[i % STREAK.length], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
-          const ang = Math.random() * Math.PI * 2, rad = 90 + Math.random() * 560;
-          m.rotation.order = 'YXZ';
-          m.rotation.y = (Math.random() - 0.5) * 0.6;   // 대체로 카메라 쪽(세로 반사)
-          m.rotation.x = -Math.PI / 2;
-          m.position.set(Math.cos(ang) * rad, 0.5, Math.sin(ang) * rad);
-          scene.add(m);
-        }
+        // (가짜 반사 줄기 제거 — Reflector 실제 반사로 대체)
         // 원경 네온 사인(밝은 세로 바)
         for (let i = 0; i < 22; i++) {
           const bar = new THREE.Mesh(new THREE.PlaneGeometry(4 + Math.random() * 6, 40 + Math.random() * 120),
@@ -410,6 +447,8 @@ const count = nodes.length;
       let _t = 0;
       const animate = () => {
         _t += 0.016;
+        if (mirrorMat) mirrorMat.uniforms.uTime.value = _t;
+        if (gradeMat) gradeMat.uniforms.uTime.value = _t;
         // 비
         if (rain && rainPos && rainBase) {
           const RN = rainBase.length / 3;
@@ -435,14 +474,50 @@ const count = nodes.length;
       };
       requestAnimationFrame(animate);
 
-      import('three/examples/jsm/postprocessing/UnrealBloomPass.js')
-        .then(({ UnrealBloomPass }) => {
-          try {
-            const bloom = new UnrealBloomPass(new THREE.Vector2(el.clientWidth, el.clientHeight), 1.25, 0.9, 0.4);
-            Graph.postProcessingComposer().addPass(bloom);
-          } catch (e) { console.warn('bloom skipped', e); }
-        })
-        .catch(() => { /* noop */ });
+      Promise.all([
+        import('three/examples/jsm/postprocessing/UnrealBloomPass.js'),
+        import('three/examples/jsm/postprocessing/ShaderPass.js'),
+        import('three/examples/jsm/postprocessing/SMAAPass.js'),
+        import('three/examples/jsm/postprocessing/OutputPass.js'),
+      ]).then(([{ UnrealBloomPass }, { ShaderPass }, { SMAAPass }, { OutputPass }]) => {
+        try {
+          const composer = Graph.postProcessingComposer();
+          const bloom = new UnrealBloomPass(new THREE.Vector2(el.clientWidth, el.clientHeight), 1.35, 0.85, 0.32);
+          composer.addPass(bloom);
+          try { composer.addPass(new SMAAPass(el.clientWidth, el.clientHeight)); } catch (e) { /* smaa optional */ }
+          const grade = new ShaderPass({
+            uniforms: {
+              tDiffuse: { value: null },
+              uTime: { value: 0 },
+              uRes: { value: new THREE.Vector2(el.clientWidth, el.clientHeight) },
+            },
+            vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+            fragmentShader: [
+              'uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; varying vec2 vUv;',
+              'float rand(vec2 c){ return fract(sin(dot(c, vec2(12.9898,78.233)))*43758.5453); }',
+              'void main(){',
+              '  vec2 uv = vUv; vec2 d = uv - 0.5; float r2 = dot(d,d);',
+              '  float ca = 0.0011 + r2*0.0030;',
+              '  vec3 col;',
+              '  col.r = texture2D(tDiffuse, uv + d*ca).r;',
+              '  col.g = texture2D(tDiffuse, uv).g;',
+              '  col.b = texture2D(tDiffuse, uv - d*ca).b;',
+              '  float l = dot(col, vec3(0.299,0.587,0.114));',
+              '  col = mix(vec3(l), col, 1.2);',
+              '  col *= vec3(0.98, 1.0, 1.05);',
+              '  col *= 1.08;',
+              '  float vig = smoothstep(1.3, 0.45, r2*2.6);',
+              '  col *= mix(0.8, 1.0, vig);',
+              '  col += (rand(uv*uRes*0.5 + uTime) - 0.5) * 0.02;',
+              '  gl_FragColor = vec4(max(col, 0.0), 1.0);',
+              '}',
+            ].join('\n'),
+          });
+          gradeMat = grade.material;
+          composer.addPass(grade);
+          composer.addPass(new OutputPass());
+        } catch (e) { console.warn('post skipped', e); }
+      }).catch(() => { /* noop */ });
 
       const resize = () => { Graph.width(el.clientWidth); Graph.height(el.clientHeight); };
       resize();
