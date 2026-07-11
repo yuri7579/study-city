@@ -213,6 +213,8 @@ const count = nodes.length;
         (Graph.d3Force('charge') as any)?.strength(-120);
       } catch (e) { /* noop */ }
       try { Graph.cameraPosition({ x: 8, y: 58, z: 205 }, { x: 0, y: 28, z: -30 }, 0); } catch (e) { /* noop */ }
+      // depth 정밀도 확보: near를 크게 올리고 far를 씬에 맞게 조임 → 바닥 위 애디티브 오버레이의 depth-test 깜빡임(검은 노이즈) 제거
+      try { const cam: any = Graph.camera(); cam.near = 8; cam.far = 4000; cam.updateProjectionMatrix(); } catch (e) { /* noop */ }
 
       // ===== 시네마틱 네온 느와르 씬 =====
       let rain: any = null, rainPos: any = null, rainBase: any = null, mirrorMat: any = null, gradeMat: any = null;
@@ -346,10 +348,12 @@ const count = nodes.length;
         // Reflector 미사용: 회전 시 반사 앨리어싱(검은 계단 노이즈) 때문에 씬에 추가하지 않음
         void mirror;
         // 깔끔한 젖은 노면(불투명, 반사 없음) + 중앙 은은한 광택
+        // 완전 단색 바닥(텍스처 없음 → 그레이징 각도 텍스처 앨리어싱/노이즈 원천 제거)
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000),
-          new THREE.MeshBasicMaterial({ map: asphalt }));
+          new THREE.MeshBasicMaterial({ color: 0x090b13 }));
         floor.rotation.x = -Math.PI / 2; floor.position.y = 0.02;
         scene.add(floor);
+        void asphalt;
         const shc = document.createElement('canvas'); shc.width = shc.height = 256;
         const shx = shc.getContext('2d')!;
         const shg = shx.createRadialGradient(128, 128, 0, 128, 128, 128);
@@ -357,15 +361,11 @@ const count = nodes.length;
         shx.fillStyle = shg; shx.fillRect(0, 0, 256, 256);
         const sheen = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500),
           new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
-        sheen.rotation.x = -Math.PI / 2; sheen.position.y = 0.05;
+        sheen.rotation.x = -Math.PI / 2; sheen.position.y = 1.2;
         scene.add(sheen);
 
-        // 은은한 네온 도로 라인
-        const roadMat = new THREE.MeshBasicMaterial({ color: 0x2ad0ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
-        for (let i = -4; i <= 4; i++) {
-          const rx = new THREE.Mesh(new THREE.PlaneGeometry(1600, 2), roadMat); rx.rotation.x = -Math.PI / 2; rx.position.set(0, 0.08, i * 130); scene.add(rx);
-          const rz = new THREE.Mesh(new THREE.PlaneGeometry(2, 1600), roadMat); rz.rotation.x = -Math.PI / 2; rz.position.set(i * 130, 0.08, 0); scene.add(rz);
-        }
+        // 도로 그리드(얇은 네온 라인) 제거: 그레이징 각도에서 라인 모아레 = "바닥 검은 계단 노이즈" 유력 원인.
+        // 필요시 mipmap+anisotropy 텍스처 그리드로 재도입 예정.
 
         // 폭우 (비 줄기)
         const RN = 2600;
