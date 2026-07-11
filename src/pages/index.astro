@@ -488,6 +488,12 @@ const count = nodes.length;
       ]).then(([{ UnrealBloomPass }, { ShaderPass }, { SMAAPass }, { OutputPass }]) => {
         try {
           const composer = Graph.postProcessingComposer();
+          // MSAA(멀티샘플): 후처리 쓰면 브라우저 기본 안티앨리어싱이 꺼져 건물 모서리가 계단(앨리어싱)이 됨 → 되살림
+          try {
+            if (composer.renderTarget1) composer.renderTarget1.samples = 4;
+            if (composer.renderTarget2) composer.renderTarget2.samples = 4;
+            composer.setSize(el.clientWidth, el.clientHeight);
+          } catch (e) { /* msaa optional */ }
           const bloom = new UnrealBloomPass(new THREE.Vector2(el.clientWidth, el.clientHeight), 1.18, 0.8, 0.42);
           composer.addPass(bloom);
           try { composer.addPass(new SMAAPass(el.clientWidth, el.clientHeight)); } catch (e) { /* smaa optional */ }
