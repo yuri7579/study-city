@@ -274,20 +274,16 @@ const count = nodes.length;
         // 젖은 아스팔트 노면 (그레인 + 얼룩 텍스처)
         const ac = document.createElement('canvas'); ac.width = ac.height = 512;
         const axx = ac.getContext('2d')!;
-        axx.fillStyle = '#070810'; axx.fillRect(0, 0, 512, 512);
-        for (let i = 0; i < 6000; i++) {
-          const g = 6 + Math.random() * 16;
-          axx.fillStyle = `rgba(${g},${g},${g + 8},0.28)`;
-          axx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
-        }
-        for (let i = 0; i < 26; i++) {
-          const px = Math.random() * 512, py = Math.random() * 512, r = 30 + Math.random() * 90;
+        axx.fillStyle = '#080911'; axx.fillRect(0, 0, 512, 512);
+        // 점 그레인 없이 큰 부드러운 얼룩만(노이즈 방지)
+        for (let i = 0; i < 12; i++) {
+          const px = Math.random() * 512, py = Math.random() * 512, r = 90 + Math.random() * 170;
           const gg = axx.createRadialGradient(px, py, 0, px, py, r);
-          gg.addColorStop(0, 'rgba(26,38,62,0.22)'); gg.addColorStop(1, 'rgba(26,38,62,0)');
+          gg.addColorStop(0, 'rgba(22,32,54,0.14)'); gg.addColorStop(1, 'rgba(22,32,54,0)');
           axx.fillStyle = gg; axx.beginPath(); axx.arc(px, py, r, 0, 7); axx.fill();
         }
         const asphalt = new THREE.CanvasTexture(ac);
-        asphalt.wrapS = asphalt.wrapT = THREE.RepeatWrapping; asphalt.repeat.set(12, 12);
+        asphalt.wrapS = asphalt.wrapT = THREE.RepeatWrapping; asphalt.repeat.set(3, 3);
         // 진짜 반사 젖은 바닥 (Reflector + 물결 리플 셰이더) — 네온 타워·달·간판이 일렁이며 비침
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rpc = document.createElement('canvas'); rpc.width = rpc.height = 256;
@@ -295,12 +291,12 @@ const count = nodes.length;
         const rpImg = rpx.createImageData(256, 256);
         for (let i = 0; i < 256 * 256; i++) { rpImg.data[i * 4] = Math.random() * 255; rpImg.data[i * 4 + 1] = Math.random() * 255; rpImg.data[i * 4 + 2] = 128; rpImg.data[i * 4 + 3] = 255; }
         rpx.putImageData(rpImg, 0, 0);
-        rpx.filter = 'blur(2px)'; rpx.drawImage(rpc, 0, 0); rpx.filter = 'none';
+        rpx.filter = 'blur(3px)'; rpx.drawImage(rpc, 0, 0); rpx.filter = 'none';
         const ripTex = new THREE.CanvasTexture(rpc); ripTex.wrapS = ripTex.wrapT = THREE.RepeatWrapping;
         const RShader = {
           uniforms: {
             color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
-            tRipple: { value: ripTex }, uTime: { value: 0 }, uStrength: { value: 0.028 },
+            tRipple: { value: ripTex }, uTime: { value: 0 }, uStrength: { value: 0.006 },
           },
           vertexShader: `
             uniform mat4 textureMatrix;
@@ -327,13 +323,14 @@ const count = nodes.length;
             vec3 blendOverlay( vec3 b, vec3 a ){ return vec3( blendOverlay(b.r,a.r), blendOverlay(b.g,a.g), blendOverlay(b.b,a.b) ); }
             void main() {
               #include <logdepthbuf_fragment>
-              vec2 rc = vW.xz * 0.006;
+              vec2 rc = vW.xz * 0.003;
               vec2 r1 = texture2D( tRipple, rc + vec2(0.0, uTime*0.02) ).rg;
               vec2 r2 = texture2D( tRipple, rc*2.1 - vec2(uTime*0.014, 0.0) ).rg;
               vec2 rip = ((r1 + r2) - 1.0) * uStrength;
               vec4 uvR = vUv; uvR.xy += rip * vUv.w;
               vec4 base = texture2DProj( tDiffuse, uvR );
-              gl_FragColor = vec4( blendOverlay( base.rgb, color ), 1.0 );
+              float fade = 1.0 - smoothstep( 180.0, 640.0, length( vW.xz ) );
+              gl_FragColor = vec4( blendOverlay( base.rgb, color ) * fade, 1.0 );
               #include <tonemapping_fragment>
               #include <colorspace_fragment>
             }`,
@@ -350,7 +347,7 @@ const count = nodes.length;
         mirrorMat = mirror.material;
         // 아스팔트 그레인 오버레이(반투명) — 반사 위에 젖은 노면 질감
         const asOverlay = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000),
-          new THREE.MeshBasicMaterial({ map: asphalt, transparent: true, opacity: 0.62, depthWrite: false }));
+          new THREE.MeshBasicMaterial({ map: asphalt, transparent: true, opacity: 0.58, depthWrite: false }));
         asOverlay.rotation.x = -Math.PI / 2; asOverlay.position.y = 0.03;
         scene.add(asOverlay);
 
