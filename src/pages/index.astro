@@ -99,23 +99,22 @@ const count = nodes.length;
     import SpriteText from 'three-spritetext';
     import * as THREE from 'three';
 
-    // ---- 공유: 네온 팔레트 + 창문 파사드 텍스처 ----
-    const NEON = [0x22d3ee, 0xff3df0, 0x7c5cff, 0x00ffa3, 0xffd23d, 0xff5d73, 0x33e0ff];
-    const NEON_HEX = ['#22d3ee', '#ff3df0', '#7c5cff', '#00ffa3', '#ffd23d', '#ff5d73', '#33e0ff'];
-    const pickNeon = () => NEON[(Math.random() * NEON.length) | 0];
-    const pickHex = () => NEON_HEX[(Math.random() * NEON_HEX.length) | 0];
-    const makeFacade = (mono: boolean) => {
+    // 노트 타워용: 클러스터 색으로 tint되는 흰 창문 파사드
+    const makeNoteFacade = () => {
       const c = document.createElement('canvas');
-      c.width = 64; c.height = 256;
+      c.width = 64; c.height = 160;
       const x = c.getContext('2d')!;
-      x.fillStyle = '#04040c';
-      x.fillRect(0, 0, 64, 256);
-      for (let r = 0; r < 42; r++) {
-        for (let k = 0; k < 7; k++) {
-          if (Math.random() < 0.58) continue;
-          x.fillStyle = mono ? '#ffffff' : pickHex();
-          x.globalAlpha = 0.28 + Math.random() * 0.5;
-          x.fillRect(k * 9 + 2, r * 6 + 2, 5, 3);
+      x.fillStyle = '#05060e';
+      x.fillRect(0, 0, 64, 160);
+      const cols = 6, colW = 8, gap = 2.6, rows = 30, rowH = 5;
+      for (let r = 0; r < rows; r++) {
+        const s = Math.random();
+        const lit = s > 0.6 ? 0.9 : s > 0.4 ? 0.35 : 0.08;
+        for (let k = 0; k < cols; k++) {
+          if (Math.random() > lit) continue;
+          x.fillStyle = Math.random() < 0.5 ? '#ffffff' : '#dfe9ff';
+          x.globalAlpha = 0.5 + Math.random() * 0.5;
+          x.fillRect(k * (colW + gap) + 2, r * rowH + 1.6, colW - 2, rowH - 2.6);
         }
       }
       x.globalAlpha = 1;
@@ -123,8 +122,7 @@ const count = nodes.length;
       t.magFilter = THREE.NearestFilter;
       return t;
     };
-    const cityMats = Array.from({ length: 6 }, () => new THREE.MeshBasicMaterial({ map: makeFacade(false) }));
-    const noteFacade = makeFacade(true); // 흰 창문 → 클러스터 색으로 tint
+    const noteFacade = makeNoteFacade();
 
     const el = document.getElementById('graph');
     const dataEl = document.getElementById('graph-data');
@@ -149,199 +147,239 @@ const count = nodes.length;
         .enableNodeDrag(false)
         .nodeThreeObjectExtend(false)
         .nodeThreeObject((n: any) => {
-          // 노트 = 클러스터 색으로 빛나는 창문 타워 (주인공)
           const conns = neighbors.get(n.id)?.size || 0;
-          const h = 16 + Math.min(conns, 8) * 5;
-          const w = 7;
+          const h = 28 + Math.min(conns, 8) * 6;
+          const w = 8;
           const col = new THREE.Color(n.color || '#8ab4ff');
           const group = new THREE.Group();
           const geo = new THREE.BoxGeometry(w, h, w);
-          const body = new THREE.Mesh(
-            geo,
-            new THREE.MeshBasicMaterial({ map: noteFacade, color: col, transparent: true, opacity: 0.95 }),
-          );
+          const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: noteFacade, color: col, transparent: true, opacity: 0.95 }));
           body.position.y = h / 2;
           group.add(body);
-          const edge = new THREE.LineSegments(
-            new THREE.EdgesGeometry(geo),
-            new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 1 }),
-          );
+          const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 1 }));
           edge.position.y = h / 2;
           group.add(edge);
-          const cap = new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, 1.6, w * 0.55), new THREE.MeshBasicMaterial({ color: col }));
+          const cap = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 1.6, w * 0.5), new THREE.MeshBasicMaterial({ color: col }));
           cap.position.y = h + 1;
           group.add(cap);
-          const ring = new THREE.Mesh(
-            new THREE.RingGeometry(w * 1.0, w * 1.7, 28),
-            new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.2, side: THREE.DoubleSide }),
-          );
-          ring.rotation.x = -Math.PI / 2;
-          ring.position.y = 0.3;
+          const ring = new THREE.Mesh(new THREE.RingGeometry(w * 1.1, w * 2.1, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.28, side: THREE.DoubleSide }));
+          ring.rotation.x = -Math.PI / 2; ring.position.y = 0.4;
           group.add(ring);
           const label = new SpriteText(short(n.name));
           label.color = n.color || '#cfe6ff';
           label.textHeight = 3;
           (label as any).fontWeight = '700';
           label.material.depthWrite = false;
-          label.center.y = 0;
-          label.position.y = h + 4;
+          label.center.y = 0; label.position.y = h + 4.5;
           group.add(label);
           return group;
         })
-        .linkColor(() => 'rgba(140,205,255,0.28)')
+        .linkColor(() => 'rgba(150,210,255,0.3)')
         .linkWidth(0.7)
         .linkOpacity(0.6)
         .onNodeHover((n: any) => {
           hovered = n ? n.id : null;
           el.style.cursor = n ? 'pointer' : '';
-          Graph
-            .linkColor((l: any) => {
-              if (!hovered) return 'rgba(140,205,255,0.28)';
-              const s = idOf(l.source), t = idOf(l.target);
-              return s === hovered || t === hovered ? 'rgba(200,240,255,0.95)' : 'rgba(120,120,160,0.06)';
-            })
-            .linkWidth((l: any) => {
-              const s = idOf(l.source), t = idOf(l.target);
-              return hovered && (s === hovered || t === hovered) ? 1.8 : 0.7;
-            });
+          Graph.linkColor((l: any) => {
+            if (!hovered) return 'rgba(150,210,255,0.3)';
+            const s = idOf(l.source), t = idOf(l.target);
+            return s === hovered || t === hovered ? 'rgba(210,245,255,0.95)' : 'rgba(120,120,160,0.06)';
+          }).linkWidth((l: any) => {
+            const s = idOf(l.source), t = idOf(l.target);
+            return hovered && (s === hovered || t === hovered) ? 1.8 : 0.7;
+          });
         })
-        .onNodeClick((n: any) => {
-          if (n && n.url) window.location.href = n.url;
-        });
+        .onNodeClick((n: any) => { if (n && n.url) window.location.href = n.url; });
 
       try {
         const controls: any = Graph.controls();
-        controls.enablePan = true;
-        controls.screenSpacePanning = true;
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.12;
-        const polar = 1.32;
-        controls.minPolarAngle = polar;
-        controls.maxPolarAngle = polar;
+        controls.enablePan = true; controls.screenSpacePanning = true;
+        controls.enableDamping = true; controls.dampingFactor = 0.1;
+        const polar = 1.34;
+        controls.minPolarAngle = polar; controls.maxPolarAngle = polar;
       } catch (e) { /* noop */ }
 
-      try { Graph.scene().fog = new THREE.FogExp2(0x0a0a1e, 0.0016); } catch (e) { /* noop */ }
-
+      try { Graph.scene().fog = new THREE.FogExp2(0x080813, 0.0015); } catch (e) { /* noop */ }
       try {
-        Graph.d3Force('flatten', ((alpha: number) => {
-          for (const n of data.nodes) n.vy = (n.vy || 0) - (n.y || 0) * 0.22 * alpha;
-        }) as any);
-        (Graph.d3Force('charge') as any)?.strength(-110);
+        Graph.d3Force('flatten', ((alpha: number) => { for (const n of data.nodes) n.vy = (n.vy || 0) - (n.y || 0) * 0.22 * alpha; }) as any);
+        (Graph.d3Force('charge') as any)?.strength(-120);
       } catch (e) { /* noop */ }
+      try { Graph.cameraPosition({ x: 8, y: 58, z: 205 }, { x: 0, y: 28, z: -30 }, 0); } catch (e) { /* noop */ }
 
-      try { Graph.cameraPosition({ x: 12, y: 72, z: 210 }, { x: 0, y: 20, z: -20 }, 0); } catch (e) { /* noop */ }
-
-      // ===== 나이트시티: 젖은 거리 + 도로 + 강 + 반사 + 모션 =====
-      const beacons: any[] = [];
-      let dust: any = null;
-      let river: any = null;
+      // ===== 시네마틱 네온 느와르 씬 =====
+      let rain: any = null, rainPos: any = null, rainBase: any = null;
+      const vehicles: any[] = [];
+      const lights: any[] = [];
       try {
         const scene = Graph.scene();
 
-        // 젖은 거리 바닥 (반투명 어두움 — 아래 반사가 비침)
-        const wet = new THREE.Mesh(
-          new THREE.PlaneGeometry(3400, 3400),
-          new THREE.MeshBasicMaterial({ color: 0x05060f, transparent: true, opacity: 0.72 }),
-        );
-        wet.rotation.x = -Math.PI / 2;
+        // 큰 달 (soft glow)
+        const mc = document.createElement('canvas'); mc.width = mc.height = 256;
+        const mx = mc.getContext('2d')!;
+        const mg = mx.createRadialGradient(128, 128, 6, 128, 128, 128);
+        mg.addColorStop(0, 'rgba(255,247,232,1)'); mg.addColorStop(0.34, 'rgba(255,240,224,1)');
+        mg.addColorStop(0.4, 'rgba(255,175,190,0.4)'); mg.addColorStop(0.62, 'rgba(255,90,150,0.12)'); mg.addColorStop(1, 'rgba(255,90,150,0)');
+        mx.fillStyle = mg; mx.fillRect(0, 0, 256, 256);
+        const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(mc), transparent: true, depthWrite: false, fog: false, opacity: 0.98 }));
+        moon.scale.set(310, 310, 1); moon.position.set(-380, 395, -980);
+        scene.add(moon);
+
+        // 원경 도시 실루엣 (어둡게, 안개 속으로 사라짐 — AI 상자 느낌 X)
+        const skyline = new THREE.Group();
+        const DOTC = [0xff3df0, 0x22d3ee, 0xff9d3d];
+        const addSil = (rad0: number, radv: number, hmin: number, hmax: number, n: number, shade: number) => {
+          for (let i = 0; i < n; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const rad = rad0 + Math.random() * radv;
+            const w = 18 + Math.random() * 46;
+            const h = hmin + Math.random() * (hmax - hmin);
+            const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshBasicMaterial({ color: shade }));
+            box.position.set(Math.cos(ang) * rad, h / 2, Math.sin(ang) * rad);
+            skyline.add(box);
+            if (Math.random() < 0.5) {
+              const dot = new THREE.Mesh(new THREE.SphereGeometry(1.8, 6, 6), new THREE.MeshBasicMaterial({ color: DOTC[(Math.random() * 3) | 0] }));
+              dot.position.set(box.position.x, h, box.position.z);
+              skyline.add(dot);
+            }
+          }
+        };
+        addSil(500, 300, 110, 400, 120, 0x0e0e1e);   // 가까운 링
+        addSil(820, 640, 120, 500, 170, 0x0a0a14);   // 먼 링
+        scene.add(skyline);
+
+        // 젖은 반사 노면
+        const wet = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0x04050c, transparent: true, opacity: 0.66 }));
+        wet.rotation.x = -Math.PI / 2; wet.position.y = 0.02;
         scene.add(wet);
+        // 실루엣 반사(어둡게)
+        const reflSky = skyline.clone(true);
+        reflSky.scale.y = -1; reflSky.position.y = -0.05;
+        reflSky.traverse((o: any) => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = (o.material.opacity ?? 1) * 0.34; o.material.depthWrite = false; } });
+        scene.add(reflSky);
 
-        // 네온 도로 그리드 (거리)
-        const roads = new THREE.Group();
-        const roadMat = new THREE.MeshBasicMaterial({ color: 0x2ad0ff, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false });
-        for (let i = -5; i <= 5; i++) {
-          const rx = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2.2), roadMat);
-          rx.rotation.x = -Math.PI / 2; rx.position.set(0, 0.08, i * 150); roads.add(rx);
-          const rz = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2000), roadMat);
-          rz.rotation.x = -Math.PI / 2; rz.position.set(i * 150, 0.08, 0); roads.add(rz);
-        }
-        scene.add(roads);
-
-        // 강(하천) — 앞쪽, 도시가 물에 비침
-        river = new THREE.Mesh(
-          new THREE.PlaneGeometry(2000, 120),
-          new THREE.MeshBasicMaterial({ color: 0x0a2740, transparent: true, opacity: 0.5, depthWrite: false }),
-        );
-        river.rotation.x = -Math.PI / 2;
-        river.position.set(0, 0.05, 150);
-        scene.add(river);
-        const bankMat = new THREE.MeshBasicMaterial({ color: 0x33e0ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
-        for (const zz of [90, 210]) {
-          const bank = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2.6), bankMat);
-          bank.rotation.x = -Math.PI / 2; bank.position.set(0, 0.1, zz); scene.add(bank);
-        }
-        // 다리
-        const bridgeMat = new THREE.MeshBasicMaterial({ color: 0x140f26 });
-        const bridgeEdgeMat = new THREE.LineBasicMaterial({ color: 0xff5db0, transparent: true, opacity: 0.75 });
-        for (const bx of [-130, 150]) {
-          const bg = new THREE.BoxGeometry(15, 5, 140);
-          const b = new THREE.Mesh(bg, bridgeMat); b.position.set(bx, 4, 150); scene.add(b);
-          const be = new THREE.LineSegments(new THREE.EdgesGeometry(bg), bridgeEdgeMat); be.position.copy(b.position); scene.add(be);
+        // 은은한 네온 도로 라인
+        const roadMat = new THREE.MeshBasicMaterial({ color: 0x2ad0ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
+        for (let i = -4; i <= 4; i++) {
+          const rx = new THREE.Mesh(new THREE.PlaneGeometry(1600, 2), roadMat); rx.rotation.x = -Math.PI / 2; rx.position.set(0, 0.08, i * 130); scene.add(rx);
+          const rz = new THREE.Mesh(new THREE.PlaneGeometry(2, 1600), roadMat); rz.rotation.x = -Math.PI / 2; rz.position.set(i * 130, 0.08, 0); scene.add(rz);
         }
 
-        // 도시 (가운데 플라자는 비우고 바깥으로 높아짐)
-        const city = new THREE.Group();
-        for (let i = 0; i < 280; i++) {
-          const ang = Math.random() * Math.PI * 2;
-          const rad = 160 + Math.random() * 640;
-          const t = (rad - 160) / 640;
-          const w = 8 + Math.random() * 20;
-          const d = 8 + Math.random() * 20;
-          const hh = 18 + t * 320 * (0.5 + Math.random() * 0.8);
-          const geo = new THREE.BoxGeometry(w, hh, d);
-          const mesh = new THREE.Mesh(geo, cityMats[(Math.random() * cityMats.length) | 0]);
-          mesh.position.set(Math.cos(ang) * rad, hh / 2, Math.sin(ang) * rad);
-          city.add(mesh);
-          if (Math.random() < 0.38) {
-            const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo),
-              new THREE.LineBasicMaterial({ color: pickNeon(), transparent: true, opacity: 0.26 }));
-            edge.position.copy(mesh.position); city.add(edge);
-          }
-          if (hh > 150 && Math.random() < 0.4) {
-            const beacon = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 8),
-              new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: 1 }));
-            beacon.position.set(mesh.position.x, hh + 1.5, mesh.position.z);
-            beacon.userData.phase = Math.random() * 6.28;
-            scene.add(beacon); beacons.push(beacon);
-          }
+        // 폭우 (비 줄기)
+        const RN = 6000;
+        rainBase = new Float32Array(RN * 3); // x, y, z per streak
+        rainPos = new Float32Array(RN * 6);
+        const streak = 11;
+        for (let i = 0; i < RN; i++) {
+          const x = (Math.random() - 0.5) * 1400;
+          const z = (Math.random() - 0.5) * 1400 - 100;
+          const y = Math.random() * 600;
+          rainBase[i * 3] = x; rainBase[i * 3 + 1] = y; rainBase[i * 3 + 2] = z;
+          rainPos[i * 6] = x; rainPos[i * 6 + 1] = y + streak; rainPos[i * 6 + 2] = z;
+          rainPos[i * 6 + 3] = x; rainPos[i * 6 + 4] = y; rainPos[i * 6 + 5] = z;
         }
-        scene.add(city);
+        const rg = new THREE.BufferGeometry();
+        rg.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+        rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false }));
+        scene.add(rain);
 
-        // 반사: 도시를 아래로 미러링(어둡게)
-        const refl = city.clone(true);
-        refl.scale.y = -1;
-        refl.position.y = -0.05;
-        refl.traverse((o: any) => {
-          if (o.material) {
-            o.material = o.material.clone();
-            o.material.transparent = true;
-            o.material.opacity = (o.material.opacity ?? 1) * 0.3;
-            o.material.depthWrite = false;
-          }
-        });
-        scene.add(refl);
-
-        // 흐르는 네온 먼지
-        const PC = 650;
-        const pos = new Float32Array(PC * 3);
-        for (let i = 0; i < PC; i++) {
-          pos[i * 3] = (Math.random() - 0.5) * 1700;
-          pos[i * 3 + 1] = Math.random() * 520;
-          pos[i * 3 + 2] = (Math.random() - 0.5) * 1700;
+        // 서치라이트 (하늘 쓸기)
+        for (let i = 0; i < 3; i++) {
+          const cone = new THREE.Mesh(
+            new THREE.ConeGeometry(18, 640, 24, 1, true),
+            new THREE.MeshBasicMaterial({ color: i === 0 ? 0x22d3ee : i === 1 ? 0xff3df0 : 0xff9d3d, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+          );
+          const pivot = new THREE.Group();
+          const ang = Math.random() * Math.PI * 2, rad = 780 + Math.random() * 420;
+          pivot.position.set(Math.cos(ang) * rad, 0, Math.sin(ang) * rad);
+          cone.position.y = 310; cone.rotation.z = 0.13;
+          pivot.add(cone); scene.add(pivot);
+          lights.push({ pivot, speed: 0.12 + Math.random() * 0.16, phase: Math.random() * 6.28 });
         }
-        const pg = new THREE.BufferGeometry();
-        pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        dust = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0x8fd8ff, size: 1.4, transparent: true, opacity: 0.42, depthWrite: false }));
-        scene.add(dust);
-      } catch (e) { console.warn('city skipped', e); }
 
-      // 모션 (경광등 깜빡임 + 먼지 흐름 + 강 물결)
+        // 날아다니는 차 불빛
+        for (let i = 0; i < 18; i++) {
+          const warm = Math.random() < 0.5;
+          const v = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 6), new THREE.MeshBasicMaterial({ color: warm ? 0xff5a3c : 0x66ddff }));
+          const y = 40 + Math.random() * 260;
+          const z = (Math.random() - 0.5) * 1200 - 100;
+          const dir = Math.random() < 0.5 ? 1 : -1;
+          v.position.set((Math.random() - 0.5) * 1400, y, z);
+          v.userData = { y, z, dir, speed: 1.2 + Math.random() * 2.2 };
+          scene.add(v); vehicles.push(v);
+        }
+
+        // 원경 네온 haze + 지평선 도시 글로우
+        const mkHaze = (col: string) => {
+          const hc = document.createElement('canvas'); hc.width = hc.height = 128;
+          const hx = hc.getContext('2d')!;
+          const hg = hx.createRadialGradient(64, 64, 0, 64, 64, 64);
+          hg.addColorStop(0, col); hg.addColorStop(1, 'rgba(0,0,0,0)');
+          hx.globalAlpha = 0.6; hx.fillStyle = hg; hx.fillRect(0, 0, 128, 128);
+          return new THREE.CanvasTexture(hc);
+        };
+        const HAZE = ['#ff3df0', '#22d3ee', '#7c5cff', '#ff9d3d', '#ff5db0'].map(mkHaze);
+        // 공중 네온 haze
+        for (let i = 0; i < 14; i++) {
+          const haze = new THREE.Sprite(new THREE.SpriteMaterial({ map: HAZE[i % HAZE.length], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
+          const ang = Math.random() * Math.PI * 2, rad = 520 + Math.random() * 640;
+          haze.position.set(Math.cos(ang) * rad, 40 + Math.random() * 220, Math.sin(ang) * rad);
+          const s = 340 + Math.random() * 300; haze.scale.set(s, s, 1);
+          scene.add(haze);
+        }
+        // 지평선 도시 글로우(실루엣 뒤 역광)
+        for (let i = 0; i < 10; i++) {
+          const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: HAZE[i % HAZE.length], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.4 }));
+          const ang = (i / 10) * Math.PI * 2 + 0.3;
+          g.position.set(Math.cos(ang) * 760, 30, Math.sin(ang) * 760);
+          g.scale.set(560, 300, 1);
+          scene.add(g);
+        }
+        // 젖은 바닥 네온 반사 웅덩이(바닥에 눕힘)
+        const poolGeo = new THREE.PlaneGeometry(1, 1);
+        for (let i = 0; i < 16; i++) {
+          const p = new THREE.Mesh(poolGeo, new THREE.MeshBasicMaterial({ map: HAZE[i % HAZE.length], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
+          p.rotation.x = -Math.PI / 2;
+          const ang = Math.random() * Math.PI * 2, rad = 120 + Math.random() * 480;
+          p.position.set(Math.cos(ang) * rad, 0.6, Math.sin(ang) * rad);
+          const s = 170 + Math.random() * 280; p.scale.set(s, s, 1);
+          scene.add(p);
+        }
+        // 원경 네온 사인(밝은 세로 바)
+        for (let i = 0; i < 22; i++) {
+          const bar = new THREE.Mesh(new THREE.PlaneGeometry(4 + Math.random() * 6, 40 + Math.random() * 120),
+            new THREE.MeshBasicMaterial({ color: DOTC[(Math.random() * 3) | 0], transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
+          const ang = Math.random() * Math.PI * 2, rad = 460 + Math.random() * 560;
+          bar.position.set(Math.cos(ang) * rad, 70 + Math.random() * 220, Math.sin(ang) * rad);
+          bar.lookAt(0, bar.position.y, 0);
+          scene.add(bar);
+        }
+      } catch (e) { console.warn('scene skipped', e); }
+
+      // 모션
       let _t = 0;
       const animate = () => {
         _t += 0.016;
-        for (const b of beacons) b.material.opacity = 0.18 + 0.82 * Math.abs(Math.sin(_t * 2.2 + b.userData.phase));
-        if (dust) dust.rotation.y = _t * 0.008;
-        if (river) river.material.opacity = 0.44 + 0.08 * Math.sin(_t * 1.3);
+        // 비
+        if (rain && rainPos && rainBase) {
+          const RN = rainBase.length / 3;
+          for (let i = 0; i < RN; i++) {
+            let y = rainBase[i * 3 + 1] - ((_t * 420 + i * 7) % 620);
+            if (y < 0) y += 620;
+            const x = rainBase[i * 3] + Math.sin(_t + i) * 1.5;
+            const z = rainBase[i * 3 + 2];
+            rainPos[i * 6] = x; rainPos[i * 6 + 1] = y + 11; rainPos[i * 6 + 2] = z;
+            rainPos[i * 6 + 3] = x; rainPos[i * 6 + 4] = y; rainPos[i * 6 + 5] = z;
+          }
+          rain.geometry.attributes.position.needsUpdate = true;
+        }
+        // 서치라이트
+        for (const L of lights) L.pivot.rotation.y = Math.sin(_t * L.speed + L.phase) * 0.35;
+        // 비행체
+        for (const v of vehicles) {
+          v.position.x += v.userData.dir * v.userData.speed;
+          if (v.position.x > 750) v.position.x = -750;
+          if (v.position.x < -750) v.position.x = 750;
+        }
         requestAnimationFrame(animate);
       };
       requestAnimationFrame(animate);
@@ -349,7 +387,7 @@ const count = nodes.length;
       import('three/examples/jsm/postprocessing/UnrealBloomPass.js')
         .then(({ UnrealBloomPass }) => {
           try {
-            const bloom = new UnrealBloomPass(new THREE.Vector2(el.clientWidth, el.clientHeight), 1.15, 0.85, 0.5);
+            const bloom = new UnrealBloomPass(new THREE.Vector2(el.clientWidth, el.clientHeight), 1.25, 0.9, 0.4);
             Graph.postProcessingComposer().addPass(bloom);
           } catch (e) { console.warn('bloom skipped', e); }
         })
